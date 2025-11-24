@@ -61,6 +61,7 @@ export const OKLCHColorSchema = Schema.Struct({
   })
 )
 
+export const OKLCHColor = Schema.decodeUnknown(OKLCHColorSchema)
 export type OKLCHColor = typeof OKLCHColorSchema.Type
 
 /**
@@ -102,6 +103,7 @@ export const RGBColorSchema = Schema.Struct({
   })
 )
 
+export const RGBColor = Schema.decodeUnknown(RGBColorSchema)
 export type RGBColor = typeof RGBColorSchema.Type
 
 /**
