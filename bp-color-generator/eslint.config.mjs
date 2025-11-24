@@ -88,7 +88,7 @@ export default [
       "@typescript-eslint/ban-types": "off",
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-empty-interface": "off",
-      "@typescript-eslint/consistent-type-imports": "warn",
+      "@typescript-eslint/consistent-type-imports": "off",
 
       "@typescript-eslint/no-unused-vars": ["error", {
         argsIgnorePattern: "^_",
