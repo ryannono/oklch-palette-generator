@@ -1,11 +1,13 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
-import { generatePalette } from "../../src/programs/generate-palette.js"
 import { GeneratePaletteInput } from "../../src/schemas/generate-palette.js"
+import { PaletteService } from "../../src/services/PaletteService.js"
 
 describe("Palette Generation Integration", () => {
   it.effect("should generate a complete 10-stop palette from a color", () =>
     Effect.gen(function*() {
+      const service = yield* PaletteService
+
       const input = yield* GeneratePaletteInput({
         inputColor: "#2D72D2",
         anchorStop: 500,
@@ -13,7 +15,7 @@ describe("Palette Generation Integration", () => {
         paletteName: "test-blue"
       })
 
-      const result = yield* generatePalette(input)
+      const result = yield* service.generate(input)
 
       // Should have metadata
       expect(result.name).toBe("test-blue")
@@ -37,17 +39,19 @@ describe("Palette Generation Integration", () => {
       const stop500 = result.stops.find((s) => s.position === 500)
       expect(stop500).toBeDefined()
       expect(stop500!.value.toLowerCase()).toMatch(/^#[2-4][0-9a-f][6-8][0-9a-f]d[0-9a-f]$/i)
-    }))
+    }).pipe(Effect.provide(PaletteService.Test)))
 
   it.effect("should generate palette with RGB output format", () =>
     Effect.gen(function*() {
+      const service = yield* PaletteService
+
       const input = yield* GeneratePaletteInput({
         inputColor: "2D72D2",
         anchorStop: 500,
         outputFormat: "rgb"
       })
 
-      const result = yield* generatePalette(input)
+      const result = yield* service.generate(input)
 
       // Should have RGB format
       expect(result.outputFormat).toBe("rgb")
@@ -56,17 +60,19 @@ describe("Palette Generation Integration", () => {
       for (const stop of result.stops) {
         expect(stop.value).toMatch(/^rgb\(\d+,\s*\d+,\s*\d+\)$/)
       }
-    }))
+    }).pipe(Effect.provide(PaletteService.Test)))
 
   it.effect("should generate palette with OKLCH output format", () =>
     Effect.gen(function*() {
+      const service = yield* PaletteService
+
       const input = yield* GeneratePaletteInput({
         inputColor: "#2D72D2",
         anchorStop: 700,
         outputFormat: "oklch"
       })
 
-      const result = yield* generatePalette(input)
+      const result = yield* service.generate(input)
 
       // Should have OKLCH format
       expect(result.outputFormat).toBe("oklch")
@@ -76,19 +82,21 @@ describe("Palette Generation Integration", () => {
       for (const stop of result.stops) {
         expect(stop.value).toMatch(/^oklch\([^)]+\)$/)
       }
-    }))
+    }).pipe(Effect.provide(PaletteService.Test)))
 
   it.effect("should use default values for optional fields", () =>
     Effect.gen(function*() {
+      const service = yield* PaletteService
+
       const input = yield* GeneratePaletteInput({
         inputColor: "#2D72D2",
         anchorStop: 500,
         outputFormat: "hex"
       })
 
-      const result = yield* generatePalette(input)
+      const result = yield* service.generate(input)
 
       // Should use default palette name
       expect(result.name).toBe("generated")
-    }))
+    }).pipe(Effect.provide(PaletteService.Test)))
 })

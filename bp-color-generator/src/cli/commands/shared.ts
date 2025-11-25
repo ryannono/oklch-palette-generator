@@ -4,11 +4,11 @@
 
 import * as clack from "@clack/prompts"
 import { Effect } from "effect"
-import { generatePalette } from "../../programs/generate-palette.js"
 import type { BatchGeneratedPaletteOutput } from "../../schemas/batch.js"
 import type { ColorSpace } from "../../schemas/color.js"
 import { GeneratePaletteInput } from "../../schemas/generate-palette.js"
 import type { StopPosition } from "../../schemas/palette.js"
+import { PaletteService } from "../../services/PaletteService.js"
 
 /**
  * Generate and display palette
@@ -27,6 +27,8 @@ export const generateAndDisplay = ({
   stop: StopPosition
 }) =>
   Effect.gen(function*() {
+    const service = yield* PaletteService
+
     // Validate and create input using schema
     const input = yield* GeneratePaletteInput({
       anchorStop: stop,
@@ -37,7 +39,7 @@ export const generateAndDisplay = ({
     })
 
     // Generate palette
-    const result = yield* generatePalette(input)
+    const result = yield* service.generate(input)
 
     return result
   })

@@ -8,12 +8,12 @@
 import * as clack from "@clack/prompts"
 import { Command, Options } from "@effect/cli"
 import { Effect, Either, Option as O } from "effect"
-import { generateBatchPalette } from "../../programs/generate-batch-palette.js"
 import type { ColorStopPair } from "../../schemas/batch.js"
 import { ColorSpace, ColorString } from "../../schemas/color.js"
 import { type ExportConfig, ExportTarget } from "../../schemas/export.js"
 import { StopPosition } from "../../schemas/palette.js"
-import { exportBatchPalette } from "../../services/export.js"
+import { ExportService } from "../../services/ExportService.js"
+import { PaletteService } from "../../services/PaletteService.js"
 import { getPairsWithMissingStops, parseBatchPairsInput, type ParsedPair, setPairStop } from "../parse-batch-input.js"
 import {
   promptForBatchInputMode,
@@ -162,12 +162,14 @@ const handleBatchMode = ({
     })
 
     // Generate batch palettes
+    const service = yield* PaletteService
+
     const spinner = isInteractive ? clack.spinner() : undefined
     if (spinner) {
       spinner.start(`Generating ${colorStopPairs.length} palette(s)...`)
     }
 
-    const batchResult = yield* generateBatchPalette({
+    const batchResult = yield* service.generateBatch({
       pairs: colorStopPairs,
       outputFormat: format,
       paletteGroupName: groupName,
@@ -203,7 +205,8 @@ const handleBatchMode = ({
         includeOKLCH: true
       }
 
-      yield* exportBatchPalette(batchResult, exportConfig)
+      const exportService = yield* ExportService
+      yield* exportService.exportBatch(batchResult, exportConfig)
       clack.log.success(
         exportTarget === "json"
           ? `Exported to ${exportConfig.jsonPath}`

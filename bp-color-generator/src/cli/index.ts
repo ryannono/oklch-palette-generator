@@ -1,6 +1,7 @@
 import { Command } from "@effect/cli"
-import { NodeContext, NodeRuntime } from "@effect/platform-node"
+import { NodeRuntime } from "@effect/platform-node"
 import { Effect } from "effect"
+import { MainLive } from "../layers/MainLive.js"
 import { generate } from "./commands/generate.js"
 
 const cli = Command.make("bp-color").pipe(
@@ -12,10 +13,6 @@ const runCli = Command.run(cli, {
   version: "0.1.0"
 })
 
-const MainLive = NodeContext.layer
-
-const main = runCli(process.argv).pipe(
-  Effect.provide(MainLive)
-)
+const main = runCli(process.argv).pipe(Effect.provide(MainLive))
 
 NodeRuntime.runMain(main)

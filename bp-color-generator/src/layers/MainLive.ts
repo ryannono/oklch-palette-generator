@@ -1,40 +1,30 @@
 /**
- * Main layer composition for the application
+ * Main application layer composition
  *
- * Combines all service layers into a single layer that can be provided
- * to the application at the top level.
+ * Composes all services with their production dependencies.
+ * Each service gets its dependencies provided, then all are merged.
  */
 
-import { Layer } from "effect"
 import { NodeContext } from "@effect/platform-node"
+import { Layer } from "effect"
 import { ConfigService } from "../services/ConfigService.js"
-import { PatternService } from "../services/PatternService.js"
 import { ExportService } from "../services/ExportService.js"
 import { PaletteService } from "../services/PaletteService.js"
+import { PatternService } from "../services/PatternService.js"
 
 /**
- * Main live layer - combines all application services
+ * Main production layer with all services and platform dependencies
  *
- * Provides:
- * - ConfigService
- * - PatternService
- * - ExportService
- * - PaletteService
- * - NodeContext (FileSystem, Path, etc.)
- *
- * @example
- * ```typescript
- * const program = Effect.gen(function*() {
- *   const palette = yield* PaletteService
- *   const result = yield* palette.generate({ ... })
- * })
- *
- * const runnable = program.pipe(Effect.provide(MainLive))
- * ```
+ * Layer composition:
+ * 1. ConfigService - no dependencies
+ * 2. PatternService - needs NodeContext (FileSystem, Path)
+ * 3. ExportService - needs NodeContext (FileSystem, Path)
+ * 4. PaletteService - needs PatternService, ConfigService
  */
 export const MainLive = Layer.mergeAll(
   ConfigService.Default,
   PatternService.Default,
   ExportService.Default,
-  PaletteService.Default
-).pipe(Layer.provide(NodeContext.layer))
+  PaletteService.Default,
+  NodeContext.layer
+)
