@@ -196,4 +196,9 @@ export class PatternService extends Effect.Service<PatternService>()("PatternSer
     }
   }),
   dependencies: [NodeFileSystem.layer, NodePath.layer]
-}) {}
+}) {
+  /**
+   * Test layer - same as Default since PatternService has no environment-specific behavior
+   */
+  static readonly Test = PatternService.Default
+}

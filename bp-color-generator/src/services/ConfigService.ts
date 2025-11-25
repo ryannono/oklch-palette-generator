@@ -60,4 +60,21 @@ export class ConfigService extends Effect.Service<ConfigService>()("ConfigServic
         return config.patternSource
       })
   })
-}) {}
+}) {
+  /**
+   * Test layer with fixed configuration for testing
+   *
+   * Provides a predictable configuration without relying on environment variables.
+   */
+  static readonly Test = Effect.Service<ConfigService>()("ConfigService", {
+    effect: Effect.succeed({
+      getConfig: (): Effect.Effect<AppConfig> =>
+        Effect.succeed({
+          patternSource: "test/fixtures/palettes/example-blue.json",
+          defaultOutputFormat: "hex" as const,
+          defaultPaletteName: "generated"
+        }),
+      getPatternSource: (): Effect.Effect<string> => Effect.succeed("test/fixtures/palettes/example-blue.json")
+    })
+  }).Default
+}

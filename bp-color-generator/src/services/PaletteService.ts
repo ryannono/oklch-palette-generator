@@ -9,7 +9,7 @@
  * Orchestrates PatternService and ConfigService to generate complete palettes.
  */
 
-import { Array, Data, Effect, Either, Option } from "effect"
+import { Array, Data, Effect, Either, Layer, Option } from "effect"
 import type { ParseError } from "effect/ParseResult"
 import { oklchToHex, oklchToOKLAB, oklchToRGB } from "../domain/color/conversions.js"
 import { ColorConversionError } from "../domain/color/errors.js"
@@ -161,13 +161,20 @@ export class PaletteService extends Effect.Service<PaletteService>()("PaletteSer
           { mode: "either", concurrency: 3 }
         )
 
-        // Filter successful results (results is Either<Either<Palette, Error>, never>[])
+        // Filter successful results and track if any failed (results is Either<Either<Palette, Error>, never>[])
+        let hadFailures = false
         const palettes = Array.filterMap(results, (outerResult) =>
           Either.match(outerResult, {
-            onLeft: () => Option.none(),
+            onLeft: () => {
+              hadFailures = true
+              return Option.none()
+            },
             onRight: (innerResult) =>
               Either.match(innerResult, {
-                onLeft: () => Option.none(),
+                onLeft: () => {
+                  hadFailures = true
+                  return Option.none()
+                },
                 onRight: (palette) => Option.some(palette)
               })
           }))
@@ -176,7 +183,7 @@ export class PaletteService extends Effect.Service<PaletteService>()("PaletteSer
           groupName: input.paletteGroupName,
           outputFormat: input.outputFormat,
           palettes,
-          partial: results.some(Either.isLeft),
+          partial: hadFailures,
           generatedAt: new Date().toISOString()
         }
       })
@@ -187,4 +194,13 @@ export class PaletteService extends Effect.Service<PaletteService>()("PaletteSer
     }
   }),
   dependencies: [PatternService.Default, ConfigService.Default]
-}) {}
+}) {
+  /**
+   * Test layer with test dependencies
+   *
+   * Uses ConfigService.Test and PatternService.Test for predictable test behavior.
+   */
+  static readonly Test = PaletteService.DefaultWithoutDependencies.pipe(
+    Layer.provide(Layer.mergeAll(PatternService.Test, ConfigService.Test))
+  )
+}
