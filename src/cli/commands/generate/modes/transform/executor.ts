@@ -7,13 +7,14 @@
 import { Effect, Option as O } from "effect"
 import { oklchToHex } from "../../../../../domain/color/conversions.js"
 import { applyOpticalAppearance } from "../../../../../domain/color/transformation.js"
+import { BatchGeneratedPaletteOutput } from "../../../../../schemas/batch.js"
 import { ColorSpace, parseColorStringToOKLCH } from "../../../../../schemas/color.js"
 import type { TransformationBatch, TransformationInput } from "../../../../../schemas/transformation.js"
 import {
   buildExportConfig,
   displayPalette,
+  executeBatchExport,
   executePaletteExport,
-  executePalettesExport,
   generateAndDisplay
 } from "../../output/formatter.js"
 
@@ -130,7 +131,17 @@ export const handleOneToManyTransformation = ({
 
     yield* O.match(exportConfig, {
       onNone: () => Effect.void,
-      onSome: (config) => executePalettesExport(results, config)
+      onSome: (config) =>
+        Effect.gen(function*() {
+          const batch = yield* BatchGeneratedPaletteOutput({
+            groupName: "one-to-many-transformation",
+            outputFormat: results[0]?.outputFormat ?? "hex",
+            generatedAt: new Date().toISOString(),
+            palettes: results,
+            partial: false
+          })
+          return yield* executeBatchExport(batch, config)
+        })
     })
 
     return results
@@ -192,7 +203,17 @@ export const handleBatchTransformations = ({
 
     yield* O.match(exportConfig, {
       onNone: () => Effect.void,
-      onSome: (config) => executePalettesExport(results, config)
+      onSome: (config) =>
+        Effect.gen(function*() {
+          const batch = yield* BatchGeneratedPaletteOutput({
+            groupName: "batch-transformations",
+            outputFormat: results[0]?.outputFormat ?? "hex",
+            generatedAt: new Date().toISOString(),
+            palettes: results,
+            partial: false
+          })
+          return yield* executeBatchExport(batch, config)
+        })
     })
 
     return results

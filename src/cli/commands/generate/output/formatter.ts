@@ -131,26 +131,6 @@ export const executePaletteExport = (
   })
 
 /**
- * Execute export for multiple palettes with config
- */
-export const executePalettesExport = (
-  palettes: Array<Effect.Effect.Success<ReturnType<typeof generateAndDisplay>>>,
-  config: ExportConfig
-) =>
-  Effect.gen(function*() {
-    const exportService = yield* ExportService
-    // Export each palette individually
-    for (const palette of palettes) {
-      yield* exportService.exportPalette(palette, config)
-    }
-    clack.log.success(
-      config.target === "json"
-        ? `Exported ${palettes.length} palette(s) to ${config.jsonPath}`
-        : `Copied ${palettes.length} palette(s) to clipboard!`
-    )
-  })
-
-/**
  * Execute export for batch result with config
  */
 export const executeBatchExport = (
