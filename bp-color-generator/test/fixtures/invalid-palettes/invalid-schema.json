@@ -1,0 +1,9 @@
+{
+  "name": "invalid-palette",
+  "stops": [
+    {
+      "position": "not-a-number",
+      "hex": "#2D72D2"
+    }
+  ]
+}

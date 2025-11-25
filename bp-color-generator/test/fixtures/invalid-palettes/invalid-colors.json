@@ -1,0 +1,15 @@
+{
+  "name": "invalid-colors",
+  "stops": [
+    { "position": 100, "hex": "not-a-color" },
+    { "position": 200, "hex": "#GGGGGG" },
+    { "position": 300, "hex": "#000" },
+    { "position": 400, "hex": "#111" },
+    { "position": 500, "hex": "#222" },
+    { "position": 600, "hex": "#333" },
+    { "position": 700, "hex": "#444" },
+    { "position": 800, "hex": "#555" },
+    { "position": 900, "hex": "#666" },
+    { "position": 1000, "hex": "#777" }
+  ]
+}

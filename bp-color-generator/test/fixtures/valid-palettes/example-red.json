@@ -1,0 +1,15 @@
+{
+  "name": "example-red",
+  "stops": [
+    { "position": 100, "hex": "#F7DAD9" },
+    { "position": 200, "hex": "#EDB5B5" },
+    { "position": 300, "hex": "#E19191" },
+    { "position": 400, "hex": "#D36B6F" },
+    { "position": 500, "hex": "#C2424D" },
+    { "position": 600, "hex": "#98323A" },
+    { "position": 700, "hex": "#6F2229" },
+    { "position": 800, "hex": "#49141B" },
+    { "position": 900, "hex": "#270709" },
+    { "position": 1000, "hex": "#080101" }
+  ]
+}

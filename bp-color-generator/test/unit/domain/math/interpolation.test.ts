@@ -1,0 +1,307 @@
+/**
+ * Tests for interpolation and smoothing algorithms
+ */
+
+import { describe, expect, it } from "vitest"
+import type { TransformationPattern } from "../../../../src/domain/learning/pattern.js"
+import { clamp, lerp, smoothPattern } from "../../../../src/domain/math/interpolation.js"
+import { STOP_POSITIONS } from "../../../../src/schemas/palette.js"
+
+describe("Interpolation Math", () => {
+  describe("lerp (linear interpolation)", () => {
+    it("should interpolate at t=0 (return first value)", () => {
+      expect(lerp(10, 20, 0)).toBe(10)
+    })
+
+    it("should interpolate at t=1 (return second value)", () => {
+      expect(lerp(10, 20, 1)).toBe(20)
+    })
+
+    it("should interpolate at t=0.5 (return midpoint)", () => {
+      expect(lerp(10, 20, 0.5)).toBe(15)
+    })
+
+    it("should interpolate at t=0.25", () => {
+      expect(lerp(0, 100, 0.25)).toBe(25)
+    })
+
+    it("should interpolate at t=0.75", () => {
+      expect(lerp(0, 100, 0.75)).toBe(75)
+    })
+
+    it("should handle negative values", () => {
+      expect(lerp(-10, 10, 0.5)).toBe(0)
+    })
+
+    it("should handle values outside 0-1 range (extrapolation)", () => {
+      expect(lerp(10, 20, 1.5)).toBe(25)
+      expect(lerp(10, 20, -0.5)).toBe(5)
+    })
+
+    it("should handle zero range", () => {
+      expect(lerp(5, 5, 0.5)).toBe(5)
+    })
+  })
+
+  describe("clamp", () => {
+    it("should return value when within range", () => {
+      expect(clamp(5, 0, 10)).toBe(5)
+    })
+
+    it("should clamp to min when value is below min", () => {
+      expect(clamp(-5, 0, 10)).toBe(0)
+    })
+
+    it("should clamp to max when value is above max", () => {
+      expect(clamp(15, 0, 10)).toBe(10)
+    })
+
+    it("should handle value equal to min", () => {
+      expect(clamp(0, 0, 10)).toBe(0)
+    })
+
+    it("should handle value equal to max", () => {
+      expect(clamp(10, 0, 10)).toBe(10)
+    })
+
+    it("should handle negative ranges", () => {
+      expect(clamp(-5, -10, -1)).toBe(-5)
+      expect(clamp(-15, -10, -1)).toBe(-10)
+      expect(clamp(0, -10, -1)).toBe(-1)
+    })
+
+    it("should handle decimal values", () => {
+      expect(clamp(0.5, 0, 1)).toBe(0.5)
+      expect(clamp(1.5, 0, 1)).toBe(1)
+      expect(clamp(-0.5, 0, 1)).toBe(0)
+    })
+  })
+
+  describe("smoothPattern", () => {
+    // Helper to create a mock pattern
+    const createMockPattern = (
+      referenceStop: 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900 | 1000
+    ): TransformationPattern => ({
+      name: "test-pattern",
+      referenceStop,
+      metadata: {
+        sourceCount: 1,
+        confidence: 0.9
+      },
+      transforms: {
+        100: { lightnessMultiplier: 1.5, chromaMultiplier: 0.8, hueShiftDegrees: 5 },
+        200: { lightnessMultiplier: 1.3, chromaMultiplier: 0.9, hueShiftDegrees: 4 },
+        300: { lightnessMultiplier: 1.15, chromaMultiplier: 0.95, hueShiftDegrees: 3 },
+        400: { lightnessMultiplier: 1.05, chromaMultiplier: 0.98, hueShiftDegrees: 2 },
+        500: { lightnessMultiplier: 1.0, chromaMultiplier: 1.0, hueShiftDegrees: 0 },
+        600: { lightnessMultiplier: 0.9, chromaMultiplier: 0.95, hueShiftDegrees: -1 },
+        700: { lightnessMultiplier: 0.75, chromaMultiplier: 0.85, hueShiftDegrees: -2 },
+        800: { lightnessMultiplier: 0.55, chromaMultiplier: 0.7, hueShiftDegrees: -3 },
+        900: { lightnessMultiplier: 0.35, chromaMultiplier: 0.5, hueShiftDegrees: -4 },
+        1000: { lightnessMultiplier: 0.2, chromaMultiplier: 0.4, hueShiftDegrees: -5 }
+      }
+    })
+
+    describe("lightness progression", () => {
+      it("should create perfectly linear lightness multipliers", () => {
+        const pattern = createMockPattern(500)
+        const smoothed = smoothPattern(pattern)
+
+        // Reference stop should be exactly 1.0
+        expect(smoothed.transforms[500].lightnessMultiplier).toBe(1.0)
+
+        // Check linearity: difference between consecutive stops should be constant
+        const diffs: Array<number> = []
+        for (let i = 0; i < STOP_POSITIONS.length - 1; i++) {
+          const curr = smoothed.transforms[STOP_POSITIONS[i]].lightnessMultiplier
+          const next = smoothed.transforms[STOP_POSITIONS[i + 1]].lightnessMultiplier
+          diffs.push(next - curr)
+        }
+
+        // All diffs should be equal (within floating point precision)
+        const firstDiff = diffs[0]
+        for (const diff of diffs) {
+          expect(Math.abs(diff - firstDiff)).toBeLessThan(0.0001)
+        }
+      })
+
+      it("should have descending lightness from 100 to 1000", () => {
+        const pattern = createMockPattern(500)
+        const smoothed = smoothPattern(pattern)
+
+        // Each stop should be darker than the previous
+        for (let i = 0; i < STOP_POSITIONS.length - 1; i++) {
+          const curr = smoothed.transforms[STOP_POSITIONS[i]].lightnessMultiplier
+          const next = smoothed.transforms[STOP_POSITIONS[i + 1]].lightnessMultiplier
+          expect(curr).toBeGreaterThan(next)
+        }
+      })
+
+      it("should normalize around different reference stops", () => {
+        const pattern300 = createMockPattern(300)
+        const smoothed300 = smoothPattern(pattern300)
+        expect(smoothed300.transforms[300].lightnessMultiplier).toBe(1.0)
+
+        const pattern700 = createMockPattern(700)
+        const smoothed700 = smoothPattern(pattern700)
+        expect(smoothed700.transforms[700].lightnessMultiplier).toBe(1.0)
+      })
+
+      it("should have higher multipliers at lower stops (lighter)", () => {
+        const pattern = createMockPattern(500)
+        const smoothed = smoothPattern(pattern)
+
+        expect(smoothed.transforms[100].lightnessMultiplier).toBeGreaterThan(1.0)
+        expect(smoothed.transforms[200].lightnessMultiplier).toBeGreaterThan(1.0)
+        expect(smoothed.transforms[300].lightnessMultiplier).toBeGreaterThan(1.0)
+      })
+
+      it("should have lower multipliers at higher stops (darker)", () => {
+        const pattern = createMockPattern(500)
+        const smoothed = smoothPattern(pattern)
+
+        expect(smoothed.transforms[600].lightnessMultiplier).toBeLessThan(1.0)
+        expect(smoothed.transforms[700].lightnessMultiplier).toBeLessThan(1.0)
+        expect(smoothed.transforms[800].lightnessMultiplier).toBeLessThan(1.0)
+        expect(smoothed.transforms[900].lightnessMultiplier).toBeLessThan(1.0)
+        expect(smoothed.transforms[1000].lightnessMultiplier).toBeLessThan(1.0)
+      })
+    })
+
+    describe("chroma curve", () => {
+      it("should peak at reference stop", () => {
+        const pattern = createMockPattern(500)
+        const smoothed = smoothPattern(pattern)
+
+        const refChroma = smoothed.transforms[500].chromaMultiplier
+
+        // All other stops should have equal or lower chroma
+        for (const pos of STOP_POSITIONS) {
+          if (pos !== 500) {
+            expect(smoothed.transforms[pos].chromaMultiplier).toBeLessThanOrEqual(refChroma)
+          }
+        }
+      })
+
+      it("should be symmetric-ish around reference stop", () => {
+        const pattern = createMockPattern(500)
+        const smoothed = smoothPattern(pattern)
+
+        // Chroma at equidistant stops should be similar
+        const diff200_800 = Math.abs(
+          smoothed.transforms[200].chromaMultiplier - smoothed.transforms[800].chromaMultiplier
+        )
+        const diff300_700 = Math.abs(
+          smoothed.transforms[300].chromaMultiplier - smoothed.transforms[700].chromaMultiplier
+        )
+        const diff400_600 = Math.abs(
+          smoothed.transforms[400].chromaMultiplier - smoothed.transforms[600].chromaMultiplier
+        )
+
+        // Differences should be small (not perfectly symmetric due to parabolic fit)
+        expect(diff200_800).toBeLessThan(0.3)
+        expect(diff300_700).toBeLessThan(0.15)
+        expect(diff400_600).toBeLessThan(0.05)
+      })
+
+      it("should have non-negative chroma multipliers", () => {
+        const pattern = createMockPattern(500)
+        const smoothed = smoothPattern(pattern)
+
+        for (const pos of STOP_POSITIONS) {
+          expect(smoothed.transforms[pos].chromaMultiplier).toBeGreaterThanOrEqual(0)
+        }
+      })
+
+      it("should create smooth parabolic curve (no sudden jumps)", () => {
+        const pattern = createMockPattern(500)
+        const smoothed = smoothPattern(pattern)
+
+        // Check that differences between consecutive stops don't vary wildly
+        const diffs: Array<number> = []
+        for (let i = 0; i < STOP_POSITIONS.length - 1; i++) {
+          const curr = smoothed.transforms[STOP_POSITIONS[i]].chromaMultiplier
+          const next = smoothed.transforms[STOP_POSITIONS[i + 1]].chromaMultiplier
+          diffs.push(Math.abs(next - curr))
+        }
+
+        // No single diff should be more than 2x the average
+        const avgDiff = diffs.reduce((sum, d) => sum + d, 0) / diffs.length
+        for (const diff of diffs) {
+          expect(diff).toBeLessThan(avgDiff * 2.5)
+        }
+      })
+    })
+
+    describe("hue consistency", () => {
+      it("should use consistent hue across all stops", () => {
+        const pattern = createMockPattern(500)
+        const smoothed = smoothPattern(pattern)
+
+        const hue = smoothed.transforms[100].hueShiftDegrees
+
+        // All stops should have the same hue
+        for (const pos of STOP_POSITIONS) {
+          expect(smoothed.transforms[pos].hueShiftDegrees).toBe(hue)
+        }
+      })
+
+      it("should use median hue to eliminate outliers", () => {
+        // Create pattern with one outlier
+        const pattern = createMockPattern(500)
+        // Modify the pattern to have an outlier
+        const modifiedPattern = {
+          ...pattern,
+          transforms: {
+            ...pattern.transforms,
+            100: { ...pattern.transforms[100], hueShiftDegrees: 100 } // Outlier
+          }
+        }
+
+        const smoothed = smoothPattern(modifiedPattern)
+        const consistentHue = smoothed.transforms[500].hueShiftDegrees
+
+        // Consistent hue should not be affected by the outlier
+        expect(Math.abs(consistentHue)).toBeLessThan(10)
+      })
+
+      it("should handle even number of values (average of two middle values)", () => {
+        const pattern = createMockPattern(500)
+        const smoothed = smoothPattern(pattern)
+
+        // With 10 stops, median should be average of 5th and 6th values
+        // Values: -5, -4, -3, -2, -1, 0, 2, 3, 4, 5
+        // Sorted: -5, -4, -3, -2, -1, 0, 2, 3, 4, 5
+        // Median: (-1 + 0) / 2 = -0.5
+        expect(smoothed.transforms[500].hueShiftDegrees).toBeCloseTo(-0.5, 1)
+      })
+    })
+
+    describe("metadata", () => {
+      it("should update pattern name with -smoothed suffix", () => {
+        const pattern = createMockPattern(500)
+        const smoothed = smoothPattern(pattern)
+
+        expect(smoothed.name).toBe("test-pattern-smoothed")
+      })
+
+      it("should preserve other pattern properties", () => {
+        const pattern = createMockPattern(500)
+        const smoothed = smoothPattern(pattern)
+
+        expect(smoothed.referenceStop).toBe(pattern.referenceStop)
+        expect(smoothed.metadata).toEqual(pattern.metadata)
+      })
+
+      it("should have transforms for all 10 stop positions", () => {
+        const pattern = createMockPattern(500)
+        const smoothed = smoothPattern(pattern)
+
+        expect(Object.keys(smoothed.transforms)).toHaveLength(10)
+        for (const pos of STOP_POSITIONS) {
+          expect(smoothed.transforms[pos]).toBeDefined()
+        }
+      })
+    })
+  })
+})

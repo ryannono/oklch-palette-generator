@@ -10,7 +10,7 @@ describe("PatternService", () => {
   it.effect("should load pattern from file", () =>
     Effect.gen(function*() {
       const service = yield* PatternService
-      const pattern = yield* service.loadPattern("test/fixtures/palettes/example-blue.json")
+      const pattern = yield* service.loadPattern("test/fixtures/valid-palettes/example-blue.json")
 
       expect(pattern.referenceStop).toBe(500)
       expect(pattern.name).toContain("smoothed")
@@ -21,7 +21,7 @@ describe("PatternService", () => {
   it.effect("should load palette from file", () =>
     Effect.gen(function*() {
       const service = yield* PatternService
-      const palette = yield* service.loadPalette("test/fixtures/palettes/example-blue.json")
+      const palette = yield* service.loadPalette("test/fixtures/valid-palettes/example-blue.json")
 
       expect(palette.name).toBe("example-blue")
       expect(palette.stops).toHaveLength(10)
@@ -57,7 +57,7 @@ describe("PatternService", () => {
   it.effect("should smooth pattern transforms", () =>
     Effect.gen(function*() {
       const service = yield* PatternService
-      const pattern = yield* service.loadPattern("test/fixtures/palettes/example-blue.json")
+      const pattern = yield* service.loadPattern("test/fixtures/valid-palettes/example-blue.json")
 
       // Check that lightness multipliers are linear
       const lightness = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000].map(
@@ -72,4 +72,108 @@ describe("PatternService", () => {
       // Reference stop (500) should be 1.0
       expect(pattern.transforms[500].lightnessMultiplier).toBe(1.0)
     }).pipe(Effect.provide(PatternService.Default)))
+
+  describe("error handling", () => {
+    it.effect("should fail with PatternLoadError for invalid schema", () =>
+      Effect.gen(function*() {
+        const service = yield* PatternService
+        const result = yield* Effect.either(
+          service.loadPalette("test/fixtures/invalid-palettes/invalid-schema.json")
+        )
+
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
+          expect(result.left).toBeInstanceOf(PatternLoadError)
+          expect(result.left.message).toContain("Invalid palette schema")
+        }
+      }).pipe(Effect.provide(PatternService.Default)))
+
+    it.effect("should fail with PatternLoadError for invalid colors", () =>
+      Effect.gen(function*() {
+        const service = yield* PatternService
+        const result = yield* Effect.either(
+          service.loadPalette("test/fixtures/invalid-palettes/invalid-colors.json")
+        )
+
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
+          expect(result.left).toBeInstanceOf(PatternLoadError)
+          // Schema validation catches hex format errors
+          expect(result.left.message).toContain("Invalid palette schema")
+        }
+      }).pipe(Effect.provide(PatternService.Default)))
+
+    it.effect("should fail with PatternLoadError for incomplete palette (missing stops)", () =>
+      Effect.gen(function*() {
+        const service = yield* PatternService
+        const result = yield* Effect.either(
+          service.loadPattern("test/fixtures/invalid-palettes/incomplete-palette.json")
+        )
+
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
+          expect(result.left).toBeInstanceOf(PatternLoadError)
+          // Schema validation catches missing stops (requires exactly 10)
+          expect(result.left.message).toContain("Invalid palette schema")
+        }
+      }).pipe(Effect.provide(PatternService.Default)))
+  })
+
+  describe("loadPatternsFromDirectory", () => {
+    it.effect("should load multiple palettes from directory", () =>
+      Effect.gen(function*() {
+        const service = yield* PatternService
+        const result = yield* service.loadPatternsFromDirectory("test/fixtures/valid-palettes")
+
+        expect(result.palettes.length).toBe(2) // example-blue and example-red
+        expect(result.pattern.referenceStop).toBe(500)
+        expect(result.pattern.metadata.sourceCount).toBe(2)
+        expect(result.pattern.name).toContain("smoothed")
+      }).pipe(Effect.provide(PatternService.Default)))
+
+    it.effect("should fail when directory does not exist", () =>
+      Effect.gen(function*() {
+        const service = yield* PatternService
+        const result = yield* Effect.either(
+          service.loadPatternsFromDirectory("test/fixtures/nonexistent-dir")
+        )
+
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
+          expect(result.left).toBeInstanceOf(PatternLoadError)
+          expect(result.left.message).toContain("Failed to read directory")
+        }
+      }).pipe(Effect.provide(PatternService.Default)))
+
+    it.effect("should fail when directory has no JSON files", () =>
+      Effect.gen(function*() {
+        const service = yield* PatternService
+        // Create a directory with only .gitkeep file
+        const result = yield* Effect.either(service.loadPatternsFromDirectory("test/unit"))
+
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
+          expect(result.left).toBeInstanceOf(PatternLoadError)
+          expect(result.left.message).toContain("No JSON palette files found")
+        }
+      }).pipe(Effect.provide(PatternService.Default)))
+
+    it.effect("should aggregate patterns from multiple palettes", () =>
+      Effect.gen(function*() {
+        const service = yield* PatternService
+        const result = yield* service.loadPatternsFromDirectory("test/fixtures/valid-palettes")
+
+        // Should have loaded both example-blue.json and example-red.json
+        expect(result.palettes.length).toBe(2)
+
+        // Pattern should be smoothed
+        expect(result.pattern.name).toContain("smoothed")
+
+        // Should have all 10 transforms
+        expect(Object.keys(result.pattern.transforms)).toHaveLength(10)
+
+        // Reference stop should be 1.0
+        expect(result.pattern.transforms[500].lightnessMultiplier).toBe(1.0)
+      }).pipe(Effect.provide(PatternService.Default)))
+  })
 })

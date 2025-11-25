@@ -1,0 +1,8 @@
+{
+  "name": "incomplete-palette",
+  "stops": [
+    { "position": 100, "hex": "#E3F2FD" },
+    { "position": 200, "hex": "#BBDEFB" },
+    { "position": 300, "hex": "#90CAF9" }
+  ]
+}
