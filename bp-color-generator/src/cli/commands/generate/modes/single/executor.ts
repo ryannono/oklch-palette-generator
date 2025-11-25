@@ -3,9 +3,9 @@
  */
 
 import { Effect, Option as O } from "effect"
-import { promptForPaletteName } from "../../prompts.js"
-import { displayPaletteInteractive, displayPaletteSimple, generateAndDisplay } from "../shared.js"
-import { validateColor, validateFormat, validateStop } from "./validation.js"
+import { promptForPaletteName } from "../../../../prompts.js"
+import { displayPaletteInteractive, displayPaletteSimple, generateAndDisplay } from "../../output/formatter.js"
+import { validateColor, validateFormat, validateStop } from "../../validation.js"
 
 /**
  * Handle single palette mode generation

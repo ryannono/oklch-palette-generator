@@ -7,12 +7,6 @@
 import * as clack from "@clack/prompts"
 import { Effect, Either, Option as O } from "effect"
 import { ConfigService } from "../../../services/ConfigService.js"
-import { parseBatchPairsInput, type ParsedPair } from "../../parse-batch-input.js"
-import {
-  isTransformationSyntax,
-  parseAnyTransformation,
-  parseBatchTransformations
-} from "../../parse-transformation-input.js"
 import {
   promptForAnotherTransformation,
   promptForBatchInputMode,
@@ -21,13 +15,19 @@ import {
   promptForStop,
   promptForTargetColors
 } from "../../prompts.js"
-import { handleBatchMode } from "./batch-handler.js"
-import { handleSingleMode } from "./single-handler.js"
+import { handleBatchMode } from "./modes/batch/executor.js"
+import { handleSingleMode } from "./modes/single/executor.js"
 import {
   handleBatchTransformations,
   handleOneToManyTransformation,
   handleSingleTransformation
-} from "./transformation-handler.js"
+} from "./modes/transform/executor.js"
+import { parseBatchPairsInput, type ParsedPair } from "./parsers/batch-parser.js"
+import {
+  isTransformationSyntax,
+  parseAnyTransformation,
+  parseBatchTransformations
+} from "./parsers/transform-parser.js"
 
 /**
  * Main handler for the generate command

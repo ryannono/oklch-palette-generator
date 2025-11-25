@@ -4,9 +4,9 @@
 
 import { Effect, Option as O } from "effect"
 import { describe, expect, it } from "vitest"
-import { handleBatchMode } from "../../src/cli/commands/generate/batch-handler.js"
+import { handleBatchMode } from "../../src/cli/commands/generate/modes/batch/executor.js"
 import { handleGenerate } from "../../src/cli/commands/generate/handler.js"
-import { handleSingleMode } from "../../src/cli/commands/generate/single-handler.js"
+import { handleSingleMode } from "../../src/cli/commands/generate/modes/single/executor.js"
 import { ConfigService } from "../../src/services/ConfigService.js"
 import { PaletteService } from "../../src/services/PaletteService.js"
 

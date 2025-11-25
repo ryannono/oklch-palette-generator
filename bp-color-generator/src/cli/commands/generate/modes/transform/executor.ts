@@ -6,11 +6,11 @@
 
 import * as clack from "@clack/prompts"
 import { Effect, Option as O } from "effect"
-import { oklchToHex } from "../../../domain/color/conversions.js"
-import { applyOpticalAppearance } from "../../../domain/color/transformation.js"
-import { ColorSpace, parseColorStringToOKLCH } from "../../../schemas/color.js"
-import type { TransformationBatch, TransformationInput } from "../../../schemas/transformation.js"
-import { displayPaletteInteractive, displayPaletteSimple, generateAndDisplay } from "../shared.js"
+import { oklchToHex } from "../../../../../domain/color/conversions.js"
+import { applyOpticalAppearance } from "../../../../../domain/color/transformation.js"
+import { ColorSpace, parseColorStringToOKLCH } from "../../../../../schemas/color.js"
+import type { TransformationBatch, TransformationInput } from "../../../../../schemas/transformation.js"
+import { displayPaletteInteractive, displayPaletteSimple, generateAndDisplay } from "../../output/formatter.js"
 
 /**
  * Handle single transformation: ref>target::stop

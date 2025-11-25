@@ -4,11 +4,11 @@
 
 import * as clack from "@clack/prompts"
 import { Effect } from "effect"
-import type { BatchGeneratedPaletteOutput } from "../../schemas/batch.js"
-import type { ColorSpace } from "../../schemas/color.js"
-import { GeneratePaletteInput } from "../../schemas/generate-palette.js"
-import type { StopPosition } from "../../schemas/palette.js"
-import { PaletteService } from "../../services/PaletteService.js"
+import { BatchGeneratedPaletteOutput } from "../../../../schemas/batch.js"
+import { ColorSpace } from "../../../../schemas/color.js"
+import { GeneratePaletteInput } from "../../../../schemas/generate-palette.js"
+import { StopPosition } from "../../../../schemas/palette.js"
+import { PaletteService } from "../../../../services/PaletteService.js"
 
 /**
  * Generate and display palette

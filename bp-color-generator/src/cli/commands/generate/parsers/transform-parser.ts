@@ -9,12 +9,12 @@
 
 import { Effect } from "effect"
 import { ParseError } from "effect/ParseResult"
-import { TransformationParseError } from "../domain/color/errors.js"
-import type { TransformationBatch, TransformationInput } from "../schemas/transformation.js"
+import { TransformationParseError } from "../../../../domain/color/errors.js"
+import type { TransformationBatch, TransformationInput } from "../../../../schemas/transformation.js"
 import {
   TransformationBatch as TransformationBatchDecoder,
   TransformationInput as TransformationInputDecoder
-} from "../schemas/transformation.js"
+} from "../../../../schemas/transformation.js"
 
 /**
  * Parse a single transformation string: ref>target::stop

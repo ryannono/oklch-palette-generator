@@ -10,7 +10,7 @@ import {
   parseBatchPairsInput,
   parseBatchPairString,
   setPairStop
-} from "../../../src/cli/parse-batch-input.js"
+} from "../../../src/cli/commands/generate/parsers/batch-parser.js"
 
 describe("parseBatchPairString", () => {
   it.effect("should parse color with double colon separator", () =>

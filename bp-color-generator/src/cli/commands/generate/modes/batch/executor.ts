@@ -4,14 +4,14 @@
 
 import * as clack from "@clack/prompts"
 import { Effect, Option as O } from "effect"
-import type { ColorStopPair } from "../../../schemas/batch.js"
-import type { ExportConfig } from "../../../schemas/export.js"
-import { ExportService } from "../../../services/ExportService.js"
-import { PaletteService } from "../../../services/PaletteService.js"
-import { getPairsWithMissingStops, type ParsedPair, setPairStop } from "../../parse-batch-input.js"
-import { promptForJsonPath, promptForPaletteName, promptForStop } from "../../prompts.js"
-import { displayBatchInteractive } from "../shared.js"
-import { validateExportTarget, validateFormat } from "./validation.js"
+import type { ColorStopPair } from "../../../../../schemas/batch.js"
+import type { ExportConfig } from "../../../../../schemas/export.js"
+import { ExportService } from "../../../../../services/ExportService.js"
+import { PaletteService } from "../../../../../services/PaletteService.js"
+import { promptForJsonPath, promptForPaletteName, promptForStop } from "../../../../prompts.js"
+import { displayBatchInteractive } from "../../output/formatter.js"
+import { getPairsWithMissingStops, type ParsedPair, setPairStop } from "../../parsers/batch-parser.js"
+import { validateExportTarget, validateFormat } from "../../validation.js"
 
 /**
  * Handle batch mode palette generation

@@ -10,7 +10,7 @@ import {
   parseBatchTransformations,
   parseOneToManyTransformation,
   parseTransformationString
-} from "../../../src/cli/parse-transformation-input.js"
+} from "../../../src/cli/commands/generate/parsers/transform-parser.js"
 
 describe("Transformation Input Parsing", () => {
   describe("isTransformationSyntax", () => {
