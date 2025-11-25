@@ -142,7 +142,10 @@ describe("Interpolation Math", () => {
         // The quadratic curve should pass through learned endpoint values
         // and the reference point at 500
         expect(smoothed.transforms[100].lightnessMultiplier).toBeCloseTo(pattern.transforms[100].lightnessMultiplier, 5)
-        expect(smoothed.transforms[1000].lightnessMultiplier).toBeCloseTo(pattern.transforms[1000].lightnessMultiplier, 5)
+        expect(smoothed.transforms[1000].lightnessMultiplier).toBeCloseTo(
+          pattern.transforms[1000].lightnessMultiplier,
+          5
+        )
       })
 
       it("should have higher multipliers at lower stops (lighter)", () => {

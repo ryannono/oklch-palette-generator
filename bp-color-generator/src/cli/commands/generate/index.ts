@@ -88,7 +88,17 @@ export const generate = Command.make("generate", {
   stop: stopOption
 }).pipe(
   Command.withHandler(
-    ({ color: colorOpt, export: exportOpt, exportPath, format: formatOpt, name: nameOpt, pattern: patternOpt, stop: stopOpt }) =>
+    (
+      {
+        color: colorOpt,
+        export: exportOpt,
+        exportPath,
+        format: formatOpt,
+        name: nameOpt,
+        pattern: patternOpt,
+        stop: stopOpt
+      }
+    ) =>
       handleGenerate({
         colorOpt,
         exportOpt,

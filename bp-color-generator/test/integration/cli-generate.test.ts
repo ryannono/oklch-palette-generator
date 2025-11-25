@@ -130,7 +130,7 @@ describe("CLI Generate Command Integration", () => {
           exportPath: O.none(),
           formatOpt: O.some("hex"),
           nameOpt: O.some("single-detect"),
-          pattern: appConfig.patternSource,
+          patternOpt: O.some(appConfig.patternSource),
           stopOpt: O.some(500)
         })
 
@@ -150,7 +150,7 @@ describe("CLI Generate Command Integration", () => {
           exportPath: O.none(),
           formatOpt: O.some("hex"),
           nameOpt: O.some("batch-detect"),
-          pattern: appConfig.patternSource,
+          patternOpt: O.some(appConfig.patternSource),
           stopOpt: O.none()
         })
 
@@ -170,7 +170,7 @@ describe("CLI Generate Command Integration", () => {
           exportPath: O.none(),
           formatOpt: O.some("hex"),
           nameOpt: O.some("batch-single"),
-          pattern: appConfig.patternSource,
+          patternOpt: O.some(appConfig.patternSource),
           stopOpt: O.none()
         })
 

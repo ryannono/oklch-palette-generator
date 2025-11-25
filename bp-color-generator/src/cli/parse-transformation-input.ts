@@ -245,11 +245,45 @@ export const parseAnyTransformation = (
   })
 
 /**
+ * Split by commas that are outside of parentheses
+ */
+const splitByCommaOutsideParens = (input: string): Array<string> => {
+  const results: Array<string> = []
+  let current = ""
+  let parenDepth = 0
+
+  for (const char of input) {
+    if (char === "(") {
+      parenDepth++
+      current += char
+    } else if (char === ")") {
+      parenDepth--
+      current += char
+    } else if (char === "," && parenDepth === 0) {
+      // Comma outside parentheses - split here
+      if (current.trim().length > 0) {
+        results.push(current.trim())
+      }
+      current = ""
+    } else {
+      current += char
+    }
+  }
+
+  // Add the last segment
+  if (current.trim().length > 0) {
+    results.push(current.trim())
+  }
+
+  return results
+}
+
+/**
  * Parse multiple transformation inputs (batch mode)
  *
  * Supports:
  * - Newline-separated transformations
- * - Comma-separated transformations (only if no parentheses present)
+ * - Comma-separated transformations (respecting parentheses)
  * - Mixed single and one-to-many transformations
  *
  * @param input - Raw multi-line input
@@ -264,17 +298,8 @@ export const parseBatchTransformations = (
     .map((s) => s.trim())
     .filter((s) => s.length > 0)
 
-  // For each line, check if it contains parentheses
-  // If not, try splitting by comma (in case multiple transformations on one line)
-  const allInputs = lines.flatMap((line) => {
-    if (line.includes("(") && line.includes(")")) {
-      // One-to-many transformation - don't split by comma
-      return [line]
-    } else {
-      // Could be multiple single transformations separated by comma
-      return line.split(/,/).map((s) => s.trim()).filter((s) => s.length > 0)
-    }
-  })
+  // For each line, split by commas that are outside parentheses
+  const allInputs = lines.flatMap((line) => splitByCommaOutsideParens(line))
 
   // Parse each input
   return Effect.all(
