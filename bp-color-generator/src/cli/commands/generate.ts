@@ -6,7 +6,7 @@
 
 import * as clack from "@clack/prompts"
 import { Command, Options } from "@effect/cli"
-import { Effect, Option as O } from "effect"
+import { Effect, Either, Option as O } from "effect"
 import { ColorSpace, ColorString } from "../../schemas/color.js"
 import { StopPosition } from "../../schemas/palette.js"
 import { promptForColor, promptForOutputFormat, promptForPaletteName, promptForStop } from "../prompts.js"
@@ -92,7 +92,7 @@ export const generate = Command.make("generate", {
             onSome: (value) => ColorString(value)
           })
         )
-        if (colorResult._tag === "Right") {
+        if (Either.isRight(colorResult)) {
           color = colorResult.right
           break
         }
@@ -100,7 +100,7 @@ export const generate = Command.make("generate", {
         clack.log.error("Invalid color format. Please try again.")
         const retryColor = yield* promptForColor()
         const retryResult = yield* Effect.either(ColorString(retryColor))
-        if (retryResult._tag === "Right") {
+        if (Either.isRight(retryResult)) {
           color = retryResult.right
           break
         }
@@ -114,7 +114,7 @@ export const generate = Command.make("generate", {
             onSome: (value) => StopPosition(value)
           })
         )
-        if (stopResult._tag === "Right") {
+        if (Either.isRight(stopResult)) {
           stop = stopResult.right
           break
         }
@@ -122,7 +122,7 @@ export const generate = Command.make("generate", {
         clack.log.error("Invalid stop position. Please try again.")
         const retryStop = yield* promptForStop()
         const retryResult = yield* Effect.either(StopPosition(retryStop))
-        if (retryResult._tag === "Right") {
+        if (Either.isRight(retryResult)) {
           stop = retryResult.right
           break
         }
@@ -136,7 +136,7 @@ export const generate = Command.make("generate", {
             onSome: (value) => ColorSpace(value)
           })
         )
-        if (formatResult._tag === "Right") {
+        if (Either.isRight(formatResult)) {
           format = formatResult.right
           break
         }
@@ -144,7 +144,7 @@ export const generate = Command.make("generate", {
         clack.log.error("Invalid format. Please try again.")
         const retryFormat = yield* promptForOutputFormat()
         const retryResult = yield* Effect.either(ColorSpace(retryFormat))
-        if (retryResult._tag === "Right") {
+        if (Either.isRight(retryResult)) {
           format = retryResult.right
           break
         }

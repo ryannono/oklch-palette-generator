@@ -8,6 +8,15 @@ import * as clack from "@clack/prompts"
 import { Effect } from "effect"
 import type { ParseError } from "effect/ParseResult"
 import { ColorSpace, ColorString } from "../schemas/color.js"
+import {
+  BatchInputMode,
+  type BatchInputMode as BatchInputModeType,
+  BatchPasteInput,
+  ExportTarget,
+  type ExportTarget as ExportTargetType,
+  JsonPath,
+  type JsonPath as JsonPathType
+} from "../schemas/export.js"
 import { STOP_POSITIONS, StopPosition, type StopPosition as StopPositionType } from "../schemas/palette.js"
 
 /**
@@ -103,6 +112,113 @@ export const promptForPaletteName = (
     }
 
     return yield* Effect.succeed(name || defaultName)
+  })
+
+/**
+ * Prompt for batch input mode
+ */
+export const promptForBatchInputMode = (): Effect.Effect<BatchInputModeType, ParseError> =>
+  Effect.gen(function*() {
+    const mode = yield* Effect.promise(() =>
+      clack.select({
+        message: "How would you like to input color/stop pairs?",
+        options: [
+          {
+            label: "Paste all at once",
+            value: "paste",
+            hint: "Multi-line or comma-separated input"
+          },
+          {
+            label: "Enter one at a time",
+            value: "cycle",
+            hint: "Guided prompts for each pair"
+          }
+        ]
+      })
+    )
+
+    if (clack.isCancel(mode)) {
+      clack.cancel("Operation cancelled")
+      process.exit(0)
+    }
+
+    return yield* BatchInputMode(mode)
+  })
+
+/**
+ * Prompt for paste mode batch input
+ */
+export const promptForBatchPaste = (): Effect.Effect<string, ParseError> =>
+  Effect.gen(function*() {
+    const input = yield* Effect.promise(() =>
+      clack.text({
+        message: "Paste color/stop pairs:",
+        placeholder: "#2D72D2::500\n#163F79::700\nor: #2D72D2:500, #163F79:700",
+        validate: (value) => {
+          if (!value || value.trim().length === 0) {
+            return "Input is required"
+          }
+          return undefined
+        }
+      })
+    )
+
+    if (clack.isCancel(input)) {
+      clack.cancel("Operation cancelled")
+      process.exit(0)
+    }
+
+    return yield* BatchPasteInput(input)
+  })
+
+/**
+ * Prompt for export target
+ */
+export const promptForExportTarget = (): Effect.Effect<ExportTargetType, ParseError> =>
+  Effect.gen(function*() {
+    const target = yield* Effect.promise(() =>
+      clack.select({
+        message: "Where to export the result?",
+        options: [
+          { label: "Display only (no export)", value: "none" },
+          { label: "Copy to clipboard", value: "clipboard" },
+          { label: "Save to JSON file", value: "json" }
+        ]
+      })
+    )
+
+    if (clack.isCancel(target)) {
+      clack.cancel("Operation cancelled")
+      process.exit(0)
+    }
+
+    return yield* ExportTarget(target)
+  })
+
+/**
+ * Prompt for JSON file path
+ */
+export const promptForJsonPath = (): Effect.Effect<JsonPathType, ParseError> =>
+  Effect.gen(function*() {
+    const path = yield* Effect.promise(() =>
+      clack.text({
+        message: "Enter JSON file path:",
+        placeholder: "./output/palettes.json",
+        validate: (value) => {
+          if (!value || value.trim().length === 0) {
+            return "File path is required"
+          }
+          return undefined
+        }
+      })
+    )
+
+    if (clack.isCancel(path)) {
+      clack.cancel("Operation cancelled")
+      process.exit(0)
+    }
+
+    return yield* JsonPath(path)
   })
 
 /**
