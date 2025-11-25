@@ -2,7 +2,6 @@
  * Single palette mode handler
  */
 
-import * as clack from "@clack/prompts"
 import { Effect, Option as O } from "effect"
 import { promptForPaletteName } from "../../prompts.js"
 import { displayPaletteInteractive, displayPaletteSimple, generateAndDisplay } from "../shared.js"
@@ -27,10 +26,6 @@ export const handleSingleMode = ({
   stopOpt: O.Option<number>
 }) =>
   Effect.gen(function*() {
-    if (isInteractive) {
-      clack.intro("🎨 BP Color Palette Generator")
-    }
-
     // Validate inputs with retry on error
     const color = yield* validateColor(colorOpt)
     const stop = yield* validateStop(stopOpt)
@@ -41,18 +36,8 @@ export const handleSingleMode = ({
       onSome: (value) => Effect.succeed(value)
     })
 
-    // Create spinner for generation if interactive
-    const spinner = isInteractive ? clack.spinner() : undefined
-    if (spinner) {
-      spinner.start("Generating palette...")
-    }
-
     // Generate palette
     const result = yield* generateAndDisplay({ color, format, name, pattern, stop })
-
-    if (spinner) {
-      spinner.stop("✅ Palette generated!")
-    }
 
     // Display with appropriate formatting
     if (isInteractive) {

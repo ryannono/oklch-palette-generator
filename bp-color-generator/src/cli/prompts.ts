@@ -121,17 +121,17 @@ export const promptForBatchInputMode = (): Effect.Effect<BatchInputModeType, Par
   Effect.gen(function*() {
     const mode = yield* Effect.promise(() =>
       clack.select({
-        message: "How would you like to input color/stop pairs?",
+        message: "How would you like to generate palettes?",
         options: [
           {
-            label: "Paste all at once",
+            label: "Paste multiple colors",
             value: "paste",
-            hint: "Multi-line or comma-separated input"
+            hint: "Batch mode: multi-line or comma-separated"
           },
           {
-            label: "Enter one at a time",
+            label: "Enter a single color",
             value: "cycle",
-            hint: "Guided prompts for each pair"
+            hint: "Interactive prompts for one palette"
           }
         ]
       })

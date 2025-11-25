@@ -42,6 +42,11 @@ export const handleGenerate = ({
     const hasColorInput = O.isSome(colorOpt)
     const isInteractive = !hasColorInput || O.isSome(stopOpt) === false
 
+    // Show intro once at the start for interactive mode
+    if (isInteractive) {
+      clack.intro("🎨 BP Color Palette Generator")
+    }
+
     // Try to detect batch mode from color input
     let pairs: Array<ParsedPair> | undefined
     let isBatchMode = false
@@ -67,9 +72,8 @@ export const handleGenerate = ({
         }
       }
     } else {
-      // No color provided - prompt for mode
+      // No color provided - prompt for mode in interactive
       if (isInteractive) {
-        clack.intro("🎨 BP Color Palette Generator")
         const inputMode = yield* promptForBatchInputMode()
 
         if (inputMode === "paste") {
@@ -77,9 +81,8 @@ export const handleGenerate = ({
           const parsedPairs = yield* parseBatchPairsInput(pasteInput)
           isBatchMode = true
           pairs = parsedPairs
-        } else {
-          clack.log.info("Cycle mode not yet implemented. Using single palette mode.")
         }
+        // else: cycle mode just falls through to single palette mode
       }
     }
 
