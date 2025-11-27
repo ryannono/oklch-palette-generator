@@ -8,7 +8,25 @@
  * To change test config: edit CONFIG_DEFAULTS.test
  */
 
+import { fileURLToPath } from "node:url"
+import { dirname, join } from "node:path"
+import { existsSync } from "node:fs"
 import type { ColorSpace } from "../schemas/color.js"
+
+// Get the package root directory
+// This works for both development (src/) and production (build/esm/)
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+
+// Try different levels up to find package root (where patterns/ exists)
+let packageRoot = __dirname
+for (let i = 0; i < 5; i++) {
+  const testPath = join(packageRoot, "patterns", "default.json")
+  if (existsSync(testPath)) {
+    break
+  }
+  packageRoot = dirname(packageRoot)
+}
 
 /**
  * Configuration structure
@@ -32,7 +50,7 @@ export const CONFIG_DEFAULTS = {
    * Used when running the CLI in production/normal mode
    */
   production: {
-    patternSource: "patterns/default.json",
+    patternSource: join(packageRoot, "patterns", "default.json"),
     defaultOutputFormat: "hex" as const,
     defaultPaletteName: "generated",
     maxConcurrency: 3
