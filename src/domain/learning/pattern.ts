@@ -6,6 +6,7 @@
 
 import type { OKLCHColor } from "../../schemas/color.js"
 import type { StopPosition } from "../../schemas/palette.js"
+import type { StopTransformMap } from "../types/collections.js"
 
 /**
  * Transformation for a single stop relative to a reference stop
@@ -22,7 +23,7 @@ export interface StopTransform {
 export interface TransformationPattern {
   readonly name: string
   readonly referenceStop: StopPosition // Usually 500
-  readonly transforms: Readonly<Record<StopPosition, StopTransform>>
+  readonly transforms: StopTransformMap // Changed from Record to ReadonlyMap for type safety
   readonly metadata: {
     readonly sourceCount: number // How many palettes contributed
     readonly confidence: number // [0, 1] based on consistency
