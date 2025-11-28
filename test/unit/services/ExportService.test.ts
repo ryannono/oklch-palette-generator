@@ -135,7 +135,7 @@ describe("ExportService", () => {
         expect(Either.isLeft(result)).toBe(true)
         if (Either.isLeft(result)) {
           expect(result.left).toBeInstanceOf(ExportError)
-          expect(result.left.message).toContain("JSON export requires a file path")
+          expect(result.left.message).toContain("Invalid JSON path:")
         }
       }).pipe(Effect.provide(TestLayer)))
 
@@ -230,7 +230,7 @@ describe("ExportService", () => {
         expect(Either.isLeft(result)).toBe(true)
         if (Either.isLeft(result)) {
           expect(result.left).toBeInstanceOf(ExportError)
-          expect(result.left.message).toContain("JSON export requires a file path")
+          expect(result.left.message).toContain("Invalid JSON path:")
         }
       }).pipe(Effect.provide(TestLayer)))
   })

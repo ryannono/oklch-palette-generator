@@ -17,6 +17,7 @@ import { generatePaletteFromStop } from "../domain/palette/generator.js"
 import type { BatchGeneratedPaletteOutput, BatchGeneratePaletteInput } from "../schemas/batch.js"
 import type { ColorSpace } from "../schemas/color.js"
 import { parseColorStringToOKLCH } from "../schemas/color.js"
+import { FilePath } from "../schemas/filesystem.js"
 import { GeneratedPaletteOutput, type GeneratePaletteInput } from "../schemas/generate-palette.js"
 import type { Palette } from "../schemas/palette.js"
 import { ConfigService } from "./ConfigService.js"
@@ -94,7 +95,17 @@ export class PaletteService extends Effect.Service<PaletteService>()("PaletteSer
 
         // Get pattern source (input override or config default)
         const config = yield* configService.getConfig()
-        const patternSource = input.patternSource ?? config.patternSource
+        const patternSource = input.patternSource
+          ? yield* FilePath(input.patternSource).pipe(
+            Effect.mapError(
+              (error) =>
+                new PaletteGenerationError({
+                  message: `Invalid pattern source: ${input.patternSource}`,
+                  cause: error
+                })
+            )
+          )
+          : config.patternSource
 
         // Step 1: Parse input color to OKLCH
         const oklchColor = yield* parseColorStringToOKLCH(inputColor)

@@ -8,25 +8,28 @@
  * To change test config: edit CONFIG_DEFAULTS.test
  */
 
-import { fileURLToPath } from "node:url"
-import { dirname, join } from "node:path"
 import { existsSync } from "node:fs"
+import { dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
 import type { ColorSpace } from "../schemas/color.js"
+
+/**
+ * Find package root by checking for patterns/ directory
+ *
+ * Recursively searches up to maxLevels to find the package root
+ */
+const findPackageRoot = (startPath: string, maxLevels = 5): string => {
+  if (maxLevels === 0) return startPath
+
+  const testPath = join(startPath, "patterns", "default.json")
+  return existsSync(testPath) ? startPath : findPackageRoot(dirname(startPath), maxLevels - 1)
+}
 
 // Get the package root directory
 // This works for both development (src/) and production (build/esm/)
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
-
-// Try different levels up to find package root (where patterns/ exists)
-let packageRoot = __dirname
-for (let i = 0; i < 5; i++) {
-  const testPath = join(packageRoot, "patterns", "default.json")
-  if (existsSync(testPath)) {
-    break
-  }
-  packageRoot = dirname(packageRoot)
-}
+const packageRoot = findPackageRoot(__dirname)
 
 /**
  * Configuration structure
@@ -54,7 +57,7 @@ export const CONFIG_DEFAULTS = {
     defaultOutputFormat: "hex" as const,
     defaultPaletteName: "generated",
     maxConcurrency: 3
-  },
+  } as const,
 
   /**
    * Test configuration
@@ -66,12 +69,8 @@ export const CONFIG_DEFAULTS = {
     defaultOutputFormat: "hex" as const,
     defaultPaletteName: "generated",
     maxConcurrency: 3
-  }
-} as const
-
-/**
- * Type guard to ensure config matches expected structure
- */
-export const isValidColorSpace = (value: string): value is ColorSpace => {
-  return ["hex", "rgb", "oklch", "oklab"].includes(value)
+  } as const
+} as const satisfies {
+  readonly production: ConfigDefaults
+  readonly test: ConfigDefaults
 }

@@ -46,7 +46,7 @@ export const promptForColor = (): Effect.Effect<string, ParseError, never> =>
 /**
  * Prompt for stop position
  */
-export const promptForStop = (color?: string, colorIndex?: number): Effect.Effect<StopPositionType, ParseError> =>
+export const promptForStop = (color?: ColorString, colorIndex?: number): Effect.Effect<StopPositionType, ParseError> =>
   Effect.gen(function*() {
     let message = "Which stop does this color represent?"
     if (color && colorIndex) {

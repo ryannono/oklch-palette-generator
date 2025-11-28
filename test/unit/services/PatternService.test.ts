@@ -14,7 +14,7 @@ describe("PatternService", () => {
 
       expect(pattern.referenceStop).toBe(500)
       expect(pattern.name).toContain("smoothed")
-      expect(pattern.transforms[500].lightnessMultiplier).toBe(1.0)
+      expect(pattern.transforms.get(500)!.lightnessMultiplier).toBe(1.0)
       expect(pattern.metadata.sourceCount).toBe(1)
     }).pipe(Effect.provide(PatternService.Default)))
 
@@ -61,7 +61,7 @@ describe("PatternService", () => {
 
       // Check that lightness multipliers are linear
       const lightness = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000].map(
-        (stop) => pattern.transforms[stop as keyof typeof pattern.transforms].lightnessMultiplier
+        (stop) => pattern.transforms.get(stop as 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900 | 1000)!.lightnessMultiplier
       )
 
       // Lightness should be descending (lighter at 100, darker at 1000)
@@ -70,7 +70,7 @@ describe("PatternService", () => {
       }
 
       // Reference stop (500) should be 1.0
-      expect(pattern.transforms[500].lightnessMultiplier).toBe(1.0)
+      expect(pattern.transforms.get(500)!.lightnessMultiplier).toBe(1.0)
     }).pipe(Effect.provide(PatternService.Default)))
 
   describe("error handling", () => {
@@ -170,10 +170,10 @@ describe("PatternService", () => {
         expect(result.pattern.name).toContain("smoothed")
 
         // Should have all 10 transforms
-        expect(Object.keys(result.pattern.transforms)).toHaveLength(10)
+        expect(result.pattern.transforms.size).toBe(10)
 
         // Reference stop should be 1.0 (allow for floating point precision)
-        expect(result.pattern.transforms[500].lightnessMultiplier).toBeCloseTo(1.0)
+        expect(result.pattern.transforms.get(500)!.lightnessMultiplier).toBeCloseTo(1.0)
       }).pipe(Effect.provide(PatternService.Default)))
   })
 })
