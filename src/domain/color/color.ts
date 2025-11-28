@@ -86,18 +86,13 @@ export const parseColorStringToOKLCH = (
 export const oklchToHex = (
   color: OKLCHColor
 ): Effect.Effect<HexColorType, ColorError | ParseError> =>
-  pipe(
-    Effect.try({
-      try: () => culori.formatHex(toCuloriOklch(color)),
-      catch: (error) => colorError("Could not convert OKLCH to hex", error)
-    }),
-    Effect.filterOrFail(
-      (hex): hex is string => hex !== undefined,
-      () => colorError("Culori could not format OKLCH as hex")
-    ),
-    Effect.map((hex) => (color.alpha === 1 ? hex.slice(0, 7) : hex)),
-    Effect.flatMap(HexColor)
-  )
+  convertWithCulori(
+    () => culori.formatHex(toCuloriOklch(color)),
+    (hex): hex is string => hex !== undefined,
+    (hex) => (color.alpha === 1 ? hex.slice(0, 7) : hex),
+    "Could not convert OKLCH to hex",
+    "Culori could not format OKLCH as hex"
+  )(color).pipe(Effect.flatMap(HexColor))
 
 /**
  * Convert OKLCH to RGB
