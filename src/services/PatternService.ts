@@ -16,6 +16,7 @@ import type { AnalyzedPalette, TransformationPattern } from "../domain/learning/
 import { extractPatterns } from "../domain/learning/statistics.js"
 import { smoothPattern } from "../domain/math/interpolation.js"
 import { parseColorStringToOKLCH } from "../schemas/color.js"
+import type { DirectoryPath, FilePath } from "../schemas/filesystem.js"
 import { ExamplePaletteInput } from "../schemas/palette.js"
 
 /**
@@ -47,7 +48,7 @@ export class PatternService extends Effect.Service<PatternService>()("PatternSer
      * Load an example palette from a JSON file and convert to OKLCH
      */
     const loadPalette = (
-      filePath: string
+      filePath: FilePath
     ): Effect.Effect<AnalyzedPalette, PatternLoadError> =>
       Effect.gen(function*() {
         // Read file
@@ -114,7 +115,7 @@ export class PatternService extends Effect.Service<PatternService>()("PatternSer
      * This loads a palette, extracts its transformation pattern, and smooths it
      */
     const loadPattern = (
-      source: string
+      source: FilePath
     ): Effect.Effect<TransformationPattern, PatternLoadError> =>
       Effect.gen(function*() {
         const palette = yield* loadPalette(source)
@@ -134,7 +135,7 @@ export class PatternService extends Effect.Service<PatternService>()("PatternSer
      * Load multiple palettes from a directory and extract a combined pattern
      */
     const loadPatternsFromDirectory = (
-      directoryPath: string
+      directoryPath: DirectoryPath
     ): Effect.Effect<
       {
         readonly palettes: ReadonlyArray<AnalyzedPalette>
