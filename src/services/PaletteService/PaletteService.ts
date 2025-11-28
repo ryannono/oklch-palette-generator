@@ -11,10 +11,8 @@
 
 import { Array, Data, Effect, Either, Layer, Option } from "effect"
 import type { ParseError } from "effect/ParseResult"
+import { ColorError, oklchToHex, oklchToOKLAB, oklchToRGB, parseColorStringToOKLCH } from "../../domain/color/color.js"
 import type { ColorSpace } from "../../domain/color/color.schema.js"
-import { parseColorStringToOKLCH } from "../../domain/color/color.schema.js"
-import { oklchToHex, oklchToOKLAB, oklchToRGB } from "../../domain/color/conversions.js"
-import { ColorConversionError } from "../../domain/color/errors.js"
 import { generatePaletteFromStop } from "../../domain/palette/generator.js"
 import type { Palette } from "../../domain/palette/palette.schema.js"
 import { ConfigService } from "../ConfigService.js"
@@ -58,7 +56,7 @@ export class PaletteService extends Effect.Service<PaletteService>()("PaletteSer
     const convertColor = (
       color: Palette["stops"][number]["color"],
       format: ColorSpace
-    ): Effect.Effect<string, ColorConversionError | ParseError> => {
+    ): Effect.Effect<string, ColorError | ParseError> => {
       switch (format) {
         case "hex":
           return oklchToHex(color)

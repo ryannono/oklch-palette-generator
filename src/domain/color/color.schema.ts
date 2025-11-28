@@ -8,8 +8,7 @@
  */
 
 import * as culori from "culori"
-import { Effect, Schema } from "effect"
-import { ColorConversionError, ColorParseError } from "./errors.js"
+import { Schema } from "effect"
 
 /**
  * OKLCH Color Schema
@@ -160,50 +159,6 @@ export const ColorStringSchema = Schema.String.pipe(
 
 export const ColorString = Schema.decodeUnknown(ColorStringSchema)
 export type ColorString = typeof ColorStringSchema.Type
-
-/**
- * Parse a color string to OKLCH using culori
- *
- * Returns an Effect that can fail with ColorParseError or ColorConversionError
- */
-export const parseColorStringToOKLCH = (
-  colorString: string
-): Effect.Effect<OKLCHColor, ColorParseError | ColorConversionError> =>
-  Effect.gen(function*() {
-    // Normalize: add # to hex colors without it
-    const normalizedColor = /^[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/.test(colorString)
-      ? `#${colorString}`
-      : colorString
-
-    const parsed = culori.parse(normalizedColor)
-    if (!parsed) {
-      return yield* Effect.fail(
-        new ColorParseError({
-          input: colorString,
-          reason: "Could not parse color string with culori"
-        })
-      )
-    }
-
-    const oklch = culori.oklch(parsed)
-    if (!oklch) {
-      return yield* Effect.fail(
-        new ColorConversionError({
-          fromSpace: parsed.mode ?? "unknown",
-          toSpace: "oklch",
-          color: parsed,
-          reason: "Culori could not convert parsed color to OKLCH"
-        })
-      )
-    }
-
-    return {
-      l: oklch.l ?? 0,
-      c: oklch.c ?? 0,
-      h: oklch.h ?? 0,
-      alpha: oklch.alpha ?? 1
-    }
-  })
 
 /**
  * OKLAB Color Schema

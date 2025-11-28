@@ -8,7 +8,7 @@
 import { FileSystem, Path } from "@effect/platform"
 import { NodeFileSystem, NodePath } from "@effect/platform-node"
 import { Data, Effect, Either } from "effect"
-import { parseColorStringToOKLCH } from "../../domain/color/color.schema.js"
+import { parseColorStringToOKLCH } from "../../domain/color/color.js"
 import type { AnalyzedPalette, TransformationPattern } from "../../domain/learning/pattern.js"
 import { extractPatterns } from "../../domain/learning/statistics.js"
 import { smoothPattern } from "../../domain/math/interpolation.js"

@@ -7,8 +7,8 @@
 
 import { Effect, Option as O } from "effect"
 import type { ParseError } from "effect/ParseResult"
+import { ColorError } from "../../../../domain/color/color.js"
 import { ColorString } from "../../../../domain/color/color.schema.js"
-import { TransformationParseError } from "../../../../domain/color/errors.js"
 import { StopPosition } from "../../../../domain/palette/palette.schema.js"
 import { parseBatchPairsInput } from "../parsers/batch-parser.js"
 import {
@@ -52,7 +52,7 @@ const isInteractive = (input: ModeDetectionInput): boolean => {
  */
 const detectTransformationMode = (
   colorInput: string
-): Effect.Effect<ExecutionMode, ParseError | TransformationParseError> =>
+): Effect.Effect<ExecutionMode, ParseError | ColorError> =>
   Effect.gen(function*() {
     // Check for batch transformations FIRST (comma or newline separated)
     // Must check this before one-to-many to avoid treating ", " after parens as part of transformation
@@ -69,9 +69,8 @@ const detectTransformationMode = (
             single.targets.length === 0
           ) {
             return yield* Effect.fail(
-              new TransformationParseError({
-                input: colorInput,
-                reason: "Invalid transformation syntax: reference and targets are required"
+              new ColorError({
+                message: `Invalid transformation syntax: reference and targets are required: ${colorInput}`
               })
             )
           }
@@ -104,9 +103,8 @@ const detectTransformationMode = (
 
       if (validInputs.length === 0) {
         return yield* Effect.fail(
-          new TransformationParseError({
-            input: colorInput,
-            reason: "No valid transformations found"
+          new ColorError({
+            message: `No valid transformations found: ${colorInput}`
           })
         )
       }
@@ -191,7 +189,7 @@ const detectSinglePaletteMode = (
  */
 const detectModeImpl = (
   input: ModeDetectionInput
-): Effect.Effect<ModeDetectionResult, ParseError | TransformationParseError> =>
+): Effect.Effect<ModeDetectionResult, ParseError | ColorError> =>
   Effect.gen(function*() {
     const interactive = isInteractive(input)
     const colorInput = O.getOrNull(input.colorOpt)

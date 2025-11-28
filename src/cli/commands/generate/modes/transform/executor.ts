@@ -5,9 +5,8 @@
  */
 
 import { Effect, Option as O } from "effect"
-import { ColorSpace, parseColorStringToOKLCH } from "../../../../../domain/color/color.schema.js"
-import { oklchToHex } from "../../../../../domain/color/conversions.js"
-import { applyOpticalAppearance } from "../../../../../domain/color/transformation.js"
+import { applyOpticalAppearance, oklchToHex, parseColorStringToOKLCH } from "../../../../../domain/color/color.js"
+import { ColorSpace } from "../../../../../domain/color/color.schema.js"
 import { BatchGeneratedPaletteOutput } from "../../../../../services/PaletteService/batch.schema.js"
 import type { TransformationBatch, TransformationInput } from "../../../../schemas/transformation.schema.js"
 import {

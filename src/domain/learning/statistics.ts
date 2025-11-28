@@ -3,7 +3,7 @@
  */
 
 import { Array as Arr, Data, Effect, Option, Order } from "effect"
-import { hueDifference } from "../color/conversions.js"
+import { hueDifference } from "../color/color.js"
 import type { StopPosition } from "../palette/palette.schema.js"
 import { STOP_POSITIONS } from "../palette/palette.schema.js"
 import type { AnalyzedPalette, StopTransform, TransformationPattern } from "./pattern.js"

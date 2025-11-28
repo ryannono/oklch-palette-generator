@@ -6,9 +6,8 @@
 
 import { Data, Effect } from "effect"
 import type { ParseError } from "effect/ParseResult"
+import { clamp, clampToGamut, ColorError, isDisplayable, normalizeHue } from "../color/color.js"
 import { OKLCHColor } from "../color/color.schema.js"
-import { clamp, clampToGamut, isDisplayable, normalizeHue } from "../color/conversions.js"
-import { ColorConversionError } from "../color/errors.js"
 import type { StopTransform, TransformationPattern } from "../learning/pattern.js"
 import { getStopTransformEffect } from "../types/collections.js"
 import { Palette, type StopPosition } from "./palette.schema.js"
@@ -50,7 +49,7 @@ export const generatePaletteFromStop = (
   anchorStop: StopPosition,
   pattern: TransformationPattern,
   paletteName: string = DEFAULT_PALETTE_NAME
-): Effect.Effect<Palette, PaletteGenerationError | ColorConversionError | ParseError> =>
+): Effect.Effect<Palette, PaletteGenerationError | ColorError | ParseError> =>
   Effect.gen(function*() {
     // Get anchor transform
     const anchorTransform = yield* getStopTransformEffect(pattern.transforms, anchorStop).pipe(
@@ -142,7 +141,7 @@ const applyRelativeTransform = (color: OKLCHColor, transform: RelativeTransform)
  */
 const ensureDisplayable = (
   color: OKLCHColor
-): Effect.Effect<OKLCHColor, ColorConversionError> =>
+): Effect.Effect<OKLCHColor, ColorError> =>
   isDisplayable(color).pipe(
     Effect.flatMap((displayable) => (displayable ? Effect.succeed(color) : clampToGamut(color)))
   )
