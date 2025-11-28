@@ -65,23 +65,16 @@ const UNKNOWN_COLOR_MODE = "unknown"
 export const parseColorStringToOKLCH = (
   colorString: string
 ): Effect.Effect<OKLCHColor, ColorError> =>
-  pipe(
-    Effect.succeed(normalizeColorString(colorString)),
-    Effect.flatMap((normalized) =>
-      pipe(
-        parseCuloriColor(normalized),
-        Option.match({
-          onNone: () =>
-            Effect.fail(
-              colorError(
-                `Could not parse color string with culori: ${colorString}`
-              )
-            ),
-          onSome: (parsed) => culoriToOklch(parsed, parsed.mode ?? UNKNOWN_COLOR_MODE)
-        })
-      )
+  Effect.gen(function*() {
+    const normalized = normalizeColorString(colorString)
+    const parsed = yield* parseCuloriColor(normalized).pipe(
+      Option.match({
+        onNone: () => Effect.fail(colorError(`Could not parse color string with culori: ${colorString}`)),
+        onSome: Effect.succeed
+      })
     )
-  )
+    return yield* culoriToOklch(parsed, parsed.mode ?? UNKNOWN_COLOR_MODE)
+  })
 
 // ============================================================================
 // Public API - Conversions

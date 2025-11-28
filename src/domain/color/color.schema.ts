@@ -3,59 +3,88 @@
  *
  * All color types are defined using Effect Schema and TypeScript types are derived from them.
  * This ensures runtime validation matches compile-time types.
- *
- * Uses culori for color parsing and validation to ensure consistency with conversion functions.
  */
 
 import * as culori from "culori"
 import { Schema } from "effect"
 
-/**
- * OKLCH Color Schema
- *
- * OKLCH (Oklabch) is a perceptually uniform color space
- *
- * - l: Lightness [0, 1] where 0 is black and 1 is white
- * - c: Chroma (colorfulness) [0, ~0.4] where 0 is achromatic
- * - h: Hue angle in degrees [0, 360)
- * - alpha: Transparency [0, 1]
- */
-export const OKLCHColorSchema = Schema.Struct({
-  l: Schema.Number.pipe(
-    Schema.greaterThanOrEqualTo(0),
-    Schema.lessThanOrEqualTo(1),
-    Schema.annotations({
-      title: "Lightness",
-      description: "Lightness value from 0 (black) to 1 (white)"
-    })
-  ),
-  c: Schema.Number.pipe(
-    Schema.greaterThanOrEqualTo(0),
-    Schema.lessThanOrEqualTo(0.5), // Practical max for displayable colors
-    Schema.annotations({
-      title: "Chroma",
-      description: "Chroma (colorfulness) where 0 is gray"
-    })
-  ),
-  h: Schema.Number.pipe(
-    Schema.greaterThanOrEqualTo(0),
-    Schema.lessThan(360),
-    Schema.annotations({
-      title: "Hue",
-      description: "Hue angle in degrees [0, 360)"
-    })
-  ),
-  alpha: Schema.optionalWith(
-    Schema.Number.pipe(
-      Schema.greaterThanOrEqualTo(0),
-      Schema.lessThanOrEqualTo(1),
-      Schema.annotations({
-        title: "Alpha",
-        description: "Transparency from 0 (transparent) to 1 (opaque)"
-      })
-    ),
-    { default: () => 1 }
+// ============================================================================
+// Schema Combinators
+// ============================================================================
+
+/** Create a bounded number schema with inclusive range */
+const BoundedNumber = (min: number, max: number, title: string) =>
+  Schema.Number.pipe(
+    Schema.greaterThanOrEqualTo(min),
+    Schema.lessThanOrEqualTo(max),
+    Schema.annotations({ title })
   )
+
+/** Create a bounded number schema with exclusive upper bound */
+const BoundedNumberExclusive = (min: number, maxExclusive: number, title: string) =>
+  Schema.Number.pipe(
+    Schema.greaterThanOrEqualTo(min),
+    Schema.lessThan(maxExclusive),
+    Schema.annotations({ title })
+  )
+
+/** Create a bounded integer schema */
+const BoundedInt = (min: number, max: number, title: string) =>
+  Schema.Number.pipe(
+    Schema.int(),
+    Schema.greaterThanOrEqualTo(min),
+    Schema.lessThanOrEqualTo(max),
+    Schema.annotations({ title })
+  )
+
+// ============================================================================
+// Component Schemas
+// ============================================================================
+
+/** Lightness (0-1) - shared by OKLCH and OKLAB */
+const LightnessSchema = BoundedNumber(0, 1, "Lightness")
+
+/** Chroma for OKLCH (0-0.5) */
+const ChromaSchema = BoundedNumber(0, 0.5, "Chroma")
+
+/** Hue angle (0 <= h < 360) */
+const HueSchema = BoundedNumberExclusive(0, 360, "Hue")
+
+/** RGB channel (0-255 integer) */
+const RGBChannelSchema = (title: string) => BoundedInt(0, 255, title)
+
+/** Alpha channel (0-1) */
+const AlphaSchema = BoundedNumber(0, 1, "Alpha")
+
+/** Optional alpha with default of 1 */
+const OptionalAlpha = Schema.optionalWith(AlphaSchema, { default: () => 1 })
+
+// ============================================================================
+// Validation Helpers
+// ============================================================================
+
+/** Pattern for hex color without # prefix */
+const HEX_WITHOUT_HASH_PATTERN = /^[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/
+
+/** Normalize color string by adding # prefix for bare hex values */
+const normalizeColorString = (value: string): string => HEX_WITHOUT_HASH_PATTERN.test(value) ? `#${value}` : value
+
+/** Validate that a (potentially normalized) color parses with culori */
+const canParseCulori = (value: string): boolean => culori.parse(normalizeColorString(value)) !== undefined
+
+/** Validate a strict hex color (must already have #) */
+const canParseHexCulori = (value: string): boolean => culori.parse(value) !== undefined
+
+// ============================================================================
+// Color Schemas
+// ============================================================================
+
+/** OKLCH color schema (perceptually uniform color space) */
+export const OKLCHColorSchema = Schema.Struct({
+  l: LightnessSchema,
+  c: ChromaSchema,
+  h: HueSchema,
+  alpha: OptionalAlpha
 }).pipe(
   Schema.annotations({
     identifier: "OKLCHColor",
@@ -66,41 +95,28 @@ export const OKLCHColorSchema = Schema.Struct({
 export const OKLCHColor = Schema.decodeUnknown(OKLCHColorSchema)
 export type OKLCHColor = typeof OKLCHColorSchema.Type
 
-/**
- * RGB Color Schema
- *
- * - r: Red channel [0, 255]
- * - g: Green channel [0, 255]
- * - b: Blue channel [0, 255]
- * - alpha: Transparency [0, 1]
- */
+/** OKLAB color schema (rectangular form of OKLCH) */
+export const OKLABColorSchema = Schema.Struct({
+  l: LightnessSchema,
+  a: Schema.Number.pipe(Schema.annotations({ title: "Green-Red axis" })),
+  b: Schema.Number.pipe(Schema.annotations({ title: "Blue-Yellow axis" })),
+  alpha: OptionalAlpha
+}).pipe(
+  Schema.annotations({
+    identifier: "OKLABColor",
+    description: "OKLAB color representation"
+  })
+)
+
+export const OKLABColor = Schema.decodeUnknown(OKLABColorSchema)
+export type OKLABColor = typeof OKLABColorSchema.Type
+
+/** RGB color schema */
 export const RGBColorSchema = Schema.Struct({
-  r: Schema.Number.pipe(
-    Schema.int(),
-    Schema.greaterThanOrEqualTo(0),
-    Schema.lessThanOrEqualTo(255),
-    Schema.annotations({ title: "Red" })
-  ),
-  g: Schema.Number.pipe(
-    Schema.int(),
-    Schema.greaterThanOrEqualTo(0),
-    Schema.lessThanOrEqualTo(255),
-    Schema.annotations({ title: "Green" })
-  ),
-  b: Schema.Number.pipe(
-    Schema.int(),
-    Schema.greaterThanOrEqualTo(0),
-    Schema.lessThanOrEqualTo(255),
-    Schema.annotations({ title: "Blue" })
-  ),
-  alpha: Schema.optionalWith(
-    Schema.Number.pipe(
-      Schema.greaterThanOrEqualTo(0),
-      Schema.lessThanOrEqualTo(1),
-      Schema.annotations({ title: "Alpha" })
-    ),
-    { default: () => 1 }
-  )
+  r: RGBChannelSchema("Red"),
+  g: RGBChannelSchema("Green"),
+  b: RGBChannelSchema("Blue"),
+  alpha: OptionalAlpha
 }).pipe(
   Schema.annotations({
     identifier: "RGBColor",
@@ -111,18 +127,10 @@ export const RGBColorSchema = Schema.Struct({
 export const RGBColor = Schema.decodeUnknown(RGBColorSchema)
 export type RGBColor = typeof RGBColorSchema.Type
 
-/**
- * Hex Color Schema (branded string)
- *
- * Format: #RRGGBB or #RRGGBBAA
- * Uses culori.parse for validation to ensure the color is actually parseable
- */
+/** Hex color schema (branded string: #RRGGBB or #RRGGBBAA) */
 export const HexColorSchema = Schema.String.pipe(
   Schema.pattern(/^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/),
-  Schema.filter((value) => {
-    const parsed = culori.parse(value)
-    return parsed !== undefined
-  }, {
+  Schema.filter(canParseHexCulori, {
     message: () => "Invalid color: could not be parsed by culori"
   }),
   Schema.brand("HexColor"),
@@ -135,74 +143,22 @@ export const HexColorSchema = Schema.String.pipe(
 export const HexColor = Schema.decodeUnknown(HexColorSchema)
 export type HexColor = typeof HexColorSchema.Type
 
-/**
- * General color string input schema (accepts various formats)
- *
- * Accepts hex, rgb(), hsl(), oklch(), etc. - anything culori can parse
- * Also accepts hex colors without # prefix (e.g., "2D72D2")
- */
+/** Color string schema (accepts any format supported by culori) */
 export const ColorStringSchema = Schema.String.pipe(
-  Schema.filter((value) => {
-    // Auto-add # to hex colors without it for validation
-    const normalizedValue = /^[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/.test(value) ? `#${value}` : value
-    const parsed = culori.parse(normalizedValue)
-    return parsed !== undefined
-  }, {
+  Schema.filter(canParseCulori, {
     message: () =>
       "Invalid color: could not be parsed by culori. Try formats like: #2D72D2, 2D72D2, rgb(45, 114, 210), oklch(57% 0.15 259)"
   }),
   Schema.annotations({
     identifier: "ColorString",
-    description: "Color string in any format supported by culori (hex, rgb(), hsl(), oklch(), etc.)"
+    description: "Color string in any format supported by culori"
   })
 )
 
 export const ColorString = Schema.decodeUnknown(ColorStringSchema)
 export type ColorString = typeof ColorStringSchema.Type
 
-/**
- * OKLAB Color Schema
- *
- * OKLAB is the rectangular form of OKLCH
- *
- * - l: Lightness [0, 1]
- * - a: Green-red axis
- * - b: Blue-yellow axis
- * - alpha: Transparency [0, 1]
- */
-export const OKLABColorSchema = Schema.Struct({
-  l: Schema.Number.pipe(
-    Schema.greaterThanOrEqualTo(0),
-    Schema.lessThanOrEqualTo(1),
-    Schema.annotations({ title: "Lightness" })
-  ),
-  a: Schema.Number.pipe(
-    Schema.annotations({ title: "Green-Red axis" })
-  ),
-  b: Schema.Number.pipe(
-    Schema.annotations({ title: "Blue-Yellow axis" })
-  ),
-  alpha: Schema.optionalWith(
-    Schema.Number.pipe(
-      Schema.greaterThanOrEqualTo(0),
-      Schema.lessThanOrEqualTo(1),
-      Schema.annotations({ title: "Alpha" })
-    ),
-    { default: () => 1 }
-  )
-}).pipe(
-  Schema.annotations({
-    identifier: "OKLABColor",
-    description: "OKLAB color representation"
-  })
-)
-
-export const OKLABColor = Schema.decodeUnknown(OKLABColorSchema)
-export type OKLABColor = typeof OKLABColorSchema.Type
-
-/**
- * Color Space Schema
- */
+/** Color space schema */
 export const ColorSpaceSchema = Schema.Literal("hex", "rgb", "oklch", "oklab").pipe(
   Schema.annotations({
     identifier: "ColorSpace",
