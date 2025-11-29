@@ -24,7 +24,7 @@ import {
 import { handleBatchMode } from "./modes/batch/executor.js"
 import { ModeResolver } from "./modes/resolver.js"
 import type { ExecutionMode, ModeDetectionResult } from "./modes/resolver.schema.js"
-import { handleSingleMode } from "./modes/single/executor.js"
+import { executeSinglePalette } from "./modes/single/executor.js"
 import { completePartialTransformations } from "./modes/transform/completer.js"
 import {
   handleBatchTransformations,
@@ -43,6 +43,8 @@ import {
   Initializing,
   SelectingMode
 } from "./types/sessionPhase.js"
+import { buildPartialFromOptions } from "./workflows/singlePalette.workflow.js"
+import { WorkflowCoordinator } from "./workflows/WorkflowCoordinator.js"
 
 // ============================================================================
 // Constants
@@ -92,9 +94,10 @@ const finalizeSession = <A>(result: A): Effect.Effect<A, never, ConsoleService> 
 const showIntroWhen = (
   condition: boolean
 ): Effect.Effect<void, never, ConsoleService> =>
-  condition
-    ? Effect.flatMap(ConsoleService, (c) => c.intro(INTRO_MESSAGE))
-    : Effect.void
+  Effect.if(condition, {
+    onTrue: () => Effect.flatMap(ConsoleService, (c) => c.intro(INTRO_MESSAGE)),
+    onFalse: () => Effect.void
+  })
 
 // ============================================================================
 // Main Handler Context Builder
@@ -231,12 +234,14 @@ const tryInteractiveMode = (
   options: GenerateOptions,
   context: ModeHandlerContext
 ) =>
-  shouldEnterInteractiveMode(detection, options)
-    ? pipe(
-      promptForBatchInputMode(),
-      Effect.flatMap((inputMode) => handleSelectedInputMode(inputMode, detection.isInteractive, context))
-    )
-    : Effect.succeed(O.none<InteractiveResult>())
+  Effect.if(shouldEnterInteractiveMode(detection, options), {
+    onTrue: () =>
+      pipe(
+        promptForBatchInputMode(),
+        Effect.flatMap((inputMode) => handleSelectedInputMode(inputMode, detection.isInteractive, context))
+      ),
+    onFalse: () => Effect.succeed(O.none<InteractiveResult>())
+  })
 
 const handlePasteMode = (isInteractive: boolean, context: ModeHandlerContext) =>
   pipe(
@@ -319,6 +324,10 @@ const buildSingleTransformation = (
   stop
 })
 
+const isMultiTarget = (
+  targets: Arr.NonEmptyReadonlyArray<string>
+): boolean => Arr.length(targets) > 1
+
 const buildTransformationFromTargets = (
   reference: string,
   targets: ReadonlyArray<string>,
@@ -327,7 +336,7 @@ const buildTransformationFromTargets = (
   Arr.match(targets, {
     onEmpty: () => buildSingleTransformation(reference, targets, stop),
     onNonEmpty: (nonEmptyTargets) =>
-      nonEmptyTargets.length > 1
+      isMultiTarget(nonEmptyTargets)
         ? buildBatchTransformation(reference, nonEmptyTargets, stop)
         : buildSingleTransformation(reference, nonEmptyTargets, stop)
   })
@@ -358,15 +367,21 @@ const handleSinglePaletteMode = (
 ) =>
   pipe(
     logPhase(GatheringInput({ mode })),
-    Effect.zipRight(
-      handleSingleMode({
+    Effect.zipRight(WorkflowCoordinator),
+    Effect.flatMap((coordinator) => {
+      const partial = buildPartialFromOptions({
         colorOpt: options.colorOpt,
-        exportOpt: context.exportOpt,
-        exportPath: context.exportPath,
         formatOpt: context.formatOpt,
         nameOpt: context.nameOpt,
-        pattern: context.pattern,
+        patternOpt: O.some(context.pattern),
         stopOpt: options.stopOpt
+      })
+      return coordinator.completeSinglePalette(partial, context.pattern)
+    }),
+    Effect.flatMap((completeInput) =>
+      executeSinglePalette(completeInput, {
+        exportOpt: context.exportOpt,
+        exportPath: context.exportPath
       })
     )
   )

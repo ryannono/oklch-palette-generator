@@ -8,6 +8,7 @@
 import { NodeContext } from "@effect/platform-node"
 import { Layer } from "effect"
 import { ModeResolver } from "../cli/commands/generate/modes/resolver.js"
+import { WorkflowCoordinator } from "../cli/commands/generate/workflows/WorkflowCoordinator.js"
 import { ConfigService } from "../services/ConfigService.js"
 import { ConsoleService } from "../services/ConsoleService/index.js"
 import { ExportService } from "../services/ExportService/index.js"
@@ -45,5 +46,6 @@ export const MainLive = Layer.mergeAll(
   PaletteService.Default,
   PatternService.Default,
   PromptService.Default,
+  WorkflowCoordinator.Default,
   NodeContext.layer
 )

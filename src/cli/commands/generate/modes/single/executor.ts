@@ -6,6 +6,7 @@
 
 import { Effect, Option as O } from "effect"
 import { promptForPaletteName } from "../../../../prompts.js"
+import type { SinglePaletteComplete } from "../../inputSpecs/singlePalette.input.js"
 import { buildExportConfig, displayPalette, executePaletteExport, generateAndDisplay } from "../../output/formatter.js"
 import { validateColor, validateFormat, validateStop } from "../../validation.js"
 
@@ -13,7 +14,7 @@ import { validateColor, validateFormat, validateStop } from "../../validation.js
 // Types
 // ============================================================================
 
-type SingleModeOptions = {
+interface SingleModeOptions {
   readonly colorOpt: O.Option<string>
   readonly exportOpt: O.Option<string>
   readonly exportPath: O.Option<string>
@@ -23,16 +24,52 @@ type SingleModeOptions = {
   readonly stopOpt: O.Option<number>
 }
 
+interface SingleModeExecuteOptions {
+  readonly exportOpt: O.Option<string>
+  readonly exportPath: O.Option<string>
+}
+
 // ============================================================================
 // Public API
 // ============================================================================
 
 /**
- * Handle single palette mode generation
+ * Execute single palette mode with complete, validated input.
+ *
+ * This is the new workflow-based API that receives fully validated input.
+ * No prompting or validation happens here - just pure execution.
+ */
+export const executeSinglePalette = (
+  input: SinglePaletteComplete,
+  options: SingleModeExecuteOptions
+) =>
+  Effect.gen(function*() {
+    const result = yield* generateAndDisplay({
+      color: input.color,
+      format: input.format,
+      name: input.name,
+      pattern: input.pattern,
+      stop: input.stop
+    })
+    yield* displayPalette(result)
+
+    const exportConfig = yield* buildExportConfig(options.exportOpt, options.exportPath)
+    yield* O.match(exportConfig, {
+      onNone: () => Effect.void,
+      onSome: (config) => executePaletteExport(result, config)
+    })
+
+    return result
+  })
+
+/**
+ * Handle single palette mode generation (legacy API)
  *
  * Validates inputs (prompting for missing required values), generates
  * a palette using the configured pattern, displays the result, and
  * optionally exports to JSON or clipboard.
+ *
+ * @deprecated Use executeSinglePalette with WorkflowCoordinator instead
  */
 export const handleSingleMode = ({
   colorOpt,
