@@ -7,18 +7,10 @@
 
 import { Effect, Option as O, pipe } from "effect"
 import type { ParseError } from "effect/ParseResult"
-import { ColorSpace, type ColorSpace as ColorSpaceType, ColorString } from "../../../domain/color/color.schema.js"
-import { StopPosition, type StopPosition as StopPositionType } from "../../../domain/palette/palette.schema.js"
 import { ConsoleService } from "../../../services/ConsoleService/index.js"
 import { ExportTarget, type ExportTarget as ExportTargetType } from "../../../services/ExportService/export.schema.js"
 import { PromptService } from "../../../services/PromptService/index.js"
-import {
-  CancelledError,
-  promptForColor,
-  promptForExportTarget,
-  promptForOutputFormat,
-  promptForStop
-} from "../../prompts.js"
+import { CancelledError, promptForExportTarget } from "../../prompts.js"
 
 // ============================================================================
 // Generic Validator
@@ -70,42 +62,6 @@ const createValidator = <TRawInput, TPromptOutput extends TRawInput, TOutput>(
 // ============================================================================
 // Specific Validators
 // ============================================================================
-
-/**
- * Validate color input with retry on error (for single mode)
- */
-export const validateColor = (
-  colorOpt: O.Option<string>
-): Effect.Effect<string, CancelledError, ConsoleService | PromptService> =>
-  createValidator<string, string, string>({
-    validate: ColorString,
-    prompt: promptForColor,
-    errorMessage: "Invalid color format. Please try again."
-  })(colorOpt)
-
-/**
- * Validate stop position with retry on error
- */
-export const validateStop = (
-  stopOpt: O.Option<number>
-): Effect.Effect<StopPositionType, CancelledError, ConsoleService | PromptService> =>
-  createValidator<number, StopPositionType, StopPositionType>({
-    validate: StopPosition,
-    prompt: promptForStop,
-    errorMessage: "Invalid stop position. Please try again."
-  })(stopOpt)
-
-/**
- * Validate output format with retry on error
- */
-export const validateFormat = (
-  formatOpt: O.Option<string>
-): Effect.Effect<ColorSpaceType, CancelledError, ConsoleService | PromptService> =>
-  createValidator<string, ColorSpaceType, ColorSpaceType>({
-    validate: ColorSpace,
-    prompt: promptForOutputFormat,
-    errorMessage: "Invalid format. Please try again."
-  })(formatOpt)
 
 /**
  * Validate export target with retry on error

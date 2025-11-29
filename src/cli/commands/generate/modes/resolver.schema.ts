@@ -5,7 +5,7 @@
 import { Schema } from "effect"
 import { ColorStringSchema } from "../../../../domain/color/color.schema.js"
 import { StopPositionSchema } from "../../../../domain/palette/palette.schema.js"
-import { ColorAnchorSchema } from "../../../../services/PaletteService/palette.schema.js"
+import { ColorStopPairSchema } from "../../../../services/PaletteService/palette.schema.js"
 import {
   PartialTransformationBatchSchema,
   PartialTransformationRequestSchema,
@@ -17,13 +17,13 @@ import {
 // Component Schemas
 // ============================================================================
 
-/** Color anchor with optional stop for interactive prompting. */
-const PartialColorAnchorSchema = ColorAnchorSchema.pipe(
+/** Color/stop pair with optional stop for interactive prompting. */
+const PartialColorStopPairSchema = ColorStopPairSchema.pipe(
   Schema.omit("stop"),
   Schema.extend(Schema.Struct({ stop: Schema.optional(StopPositionSchema) })),
   Schema.annotations({
-    identifier: "PartialColorAnchor",
-    description: "Color anchor with optional stop position for interactive prompting"
+    identifier: "PartialColorStopPair",
+    description: "Color/stop pair with optional stop position for interactive prompting"
   })
 )
 
@@ -62,7 +62,7 @@ const SinglePaletteModeSchema = Schema.TaggedStruct("SinglePalette", {
 
 /** Batch palette generation mode. */
 const BatchPalettesModeSchema = Schema.TaggedStruct("BatchPalettes", {
-  pairs: Schema.NonEmptyArray(PartialColorAnchorSchema)
+  pairs: Schema.NonEmptyArray(PartialColorStopPairSchema)
 }).annotations({
   identifier: "BatchPalettesMode",
   description: "Generate multiple palettes from color/stop pairs"

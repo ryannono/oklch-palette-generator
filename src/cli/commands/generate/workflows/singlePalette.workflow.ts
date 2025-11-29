@@ -6,23 +6,52 @@
  */
 
 import { Effect, Option as O, pipe, Schema } from "effect"
-import type { ParseError } from "effect/ParseResult"
-import { type ColorSpace, ColorSpaceSchema } from "../../../../domain/color/color.schema.js"
-import { type StopPosition, StopPositionSchema } from "../../../../domain/palette/palette.schema.js"
-import { CancelledError, PromptService } from "../../../../services/PromptService/index.js"
+import { ColorSpaceSchema } from "../../../../domain/color/color.schema.js"
+import { StopPositionSchema } from "../../../../domain/palette/palette.schema.js"
+import { PromptService } from "../../../../services/PromptService/index.js"
 import { promptForColor, promptForOutputFormat, promptForPaletteName, promptForStop } from "../../../prompts.js"
 import {
   type SinglePaletteComplete,
   SinglePaletteCompleteSchema,
   type SinglePalettePartial
 } from "../inputSpecs/singlePalette.input.js"
+import { refineOption, resolveWithFallback, resolveWithPrompt, type WorkflowCompletionError } from "./shared/index.js"
 
 // ============================================================================
-// Types
+// Local Schema Refiners (created from generic refineOption)
 // ============================================================================
 
-/** Error types that can occur during workflow completion */
-export type WorkflowCompletionError = CancelledError | ParseError
+/** Refine Option<number> to Option<StopPosition> using Schema validation */
+const refineStopOption = refineOption(StopPositionSchema)
+
+/** Refine Option<string> to Option<ColorSpace> using Schema validation */
+const refineFormatOption = refineOption(ColorSpaceSchema)
+
+// ============================================================================
+// Local Resolvers (created from generic resolveWithPrompt)
+// ============================================================================
+
+/** Resolve color by prompting when missing */
+const resolveColor = resolveWithPrompt(promptForColor)
+
+/** Resolve stop by prompting when missing */
+const resolveStop = resolveWithPrompt(promptForStop)
+
+/** Resolve format by prompting when missing */
+const resolveFormat = resolveWithPrompt(promptForOutputFormat)
+
+/** Resolve name by prompting when missing (with default) */
+const resolveName = (
+  nameOpt: string | undefined,
+  defaultName: string
+): Effect.Effect<string, WorkflowCompletionError, PromptService> =>
+  pipe(
+    O.fromNullable(nameOpt),
+    O.match({
+      onNone: () => promptForPaletteName(defaultName),
+      onSome: Effect.succeed
+    })
+  )
 
 // ============================================================================
 // Workflow Completion
@@ -43,92 +72,10 @@ export const completeSinglePaletteInput = (
       color: resolveColor(partial.color),
       stop: resolveStop(partial.stop),
       format: resolveFormat(partial.format),
-      name: resolveName(partial.name),
-      pattern: resolvePattern(partial.pattern, patternFromContext)
+      name: resolveName(partial.name, "palette"),
+      pattern: Effect.succeed(resolveWithFallback(patternFromContext)(partial.pattern))
     }),
     Effect.flatMap((resolved) => Schema.decode(SinglePaletteCompleteSchema)(resolved))
-  )
-
-// ============================================================================
-// Field Resolution (prompt only when missing)
-// ============================================================================
-
-const resolveColor = (
-  colorOpt: string | undefined
-): Effect.Effect<string, CancelledError | ParseError, PromptService> =>
-  pipe(
-    O.fromNullable(colorOpt),
-    O.match({
-      onNone: () => promptForColor(),
-      onSome: Effect.succeed
-    })
-  )
-
-const resolveStop = (
-  stopOpt: StopPosition | undefined
-): Effect.Effect<StopPosition, CancelledError | ParseError, PromptService> =>
-  pipe(
-    O.fromNullable(stopOpt),
-    O.match({
-      onNone: () => promptForStop(),
-      onSome: Effect.succeed
-    })
-  )
-
-const resolveFormat = (
-  formatOpt: ColorSpace | undefined
-): Effect.Effect<ColorSpace, CancelledError | ParseError, PromptService> =>
-  pipe(
-    O.fromNullable(formatOpt),
-    O.match({
-      onNone: () => promptForOutputFormat(),
-      onSome: Effect.succeed
-    })
-  )
-
-const resolveName = (
-  nameOpt: string | undefined
-): Effect.Effect<string, CancelledError, PromptService> =>
-  pipe(
-    O.fromNullable(nameOpt),
-    O.match({
-      onNone: () => promptForPaletteName("palette"),
-      onSome: Effect.succeed
-    })
-  )
-
-const resolvePattern = (
-  patternOpt: string | undefined,
-  fallback: string
-): Effect.Effect<string> =>
-  pipe(
-    O.fromNullable(patternOpt),
-    O.getOrElse(() => fallback),
-    Effect.succeed
-  )
-
-// ============================================================================
-// Type-Safe Option Refinement
-// ============================================================================
-
-/**
- * Refine an Option<number> to Option<StopPosition> using Schema validation.
- * Returns O.none if the number is not a valid stop position.
- */
-const refineStopOption = (opt: O.Option<number>): O.Option<StopPosition> =>
-  pipe(
-    opt,
-    O.flatMap((n) => Schema.decodeUnknownOption(StopPositionSchema)(n))
-  )
-
-/**
- * Refine an Option<string> to Option<ColorSpace> using Schema validation.
- * Returns O.none if the string is not a valid color space.
- */
-const refineFormatOption = (opt: O.Option<string>): O.Option<ColorSpace> =>
-  pipe(
-    opt,
-    O.flatMap((s) => Schema.decodeUnknownOption(ColorSpaceSchema)(s))
   )
 
 // ============================================================================

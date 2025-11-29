@@ -1,9 +1,6 @@
-// ============================================================================
-// Generate Command Handler
-// ============================================================================
-
 /**
  * Main command handler for palette generation.
+ *
  * Uses ModeResolver to detect execution mode and routes to appropriate handler.
  */
 
@@ -21,16 +18,12 @@ import {
   promptForStop,
   promptForTargetColors
 } from "../../prompts.js"
-import { handleBatchMode } from "./modes/batch/executor.js"
+import type { PartialTransformationItem } from "./inputSpecs/batchTransform.input.js"
+import { executeBatchPalettes } from "./modes/batch/executor.js"
 import { ModeResolver } from "./modes/resolver.js"
 import type { ExecutionMode, ModeDetectionResult } from "./modes/resolver.schema.js"
 import { executeSinglePalette } from "./modes/single/executor.js"
-import { completePartialTransformations } from "./modes/transform/completer.js"
-import {
-  handleBatchTransformations,
-  handleOneToManyTransformation,
-  handleSingleTransformation
-} from "./modes/transform/executor.js"
+import { executeBatchTransform, executeManyTransform, executeSingleTransform } from "./modes/transform/executor.js"
 import type { TransformationBatch, TransformationRequest } from "./modes/transform/transformation.schema.js"
 import { parseBatchPairsInput } from "./parsers/batch-parser.js"
 import { getModePromptRequirement } from "./types/interactionPolicy.js"
@@ -43,7 +36,13 @@ import {
   Initializing,
   SelectingMode
 } from "./types/sessionPhase.js"
+import { buildBatchPartialFromPairs } from "./workflows/batch.workflow.js"
 import { buildPartialFromOptions } from "./workflows/singlePalette.workflow.js"
+import {
+  buildBatchTransformPartial,
+  buildManyTransformPartial,
+  buildSingleTransformPartial
+} from "./workflows/transform.workflow.js"
 import { WorkflowCoordinator } from "./workflows/WorkflowCoordinator.js"
 
 // ============================================================================
@@ -52,7 +51,13 @@ import { WorkflowCoordinator } from "./workflows/WorkflowCoordinator.js"
 
 const INTRO_MESSAGE = "Color Palette Generator"
 const OUTRO_MESSAGE = "Done!"
-const PAIR_SEPARATOR = "::"
+
+/** Default fallback transformation item when none are provided */
+const DEFAULT_FALLBACK_TRANSFORMATION: PartialTransformationItem = {
+  reference: "#000000",
+  target: "#000000",
+  stop: 500
+}
 
 // ============================================================================
 // Types
@@ -245,17 +250,32 @@ const tryInteractiveMode = (
 
 const handlePasteMode = (isInteractive: boolean, context: ModeHandlerContext) =>
   pipe(
-    promptForBatchPaste(),
-    Effect.flatMap(parseBatchPairsInput),
-    Effect.flatMap((parsedPairs) =>
-      handleBatchMode({
+    Effect.all({
+      parsedPairs: pipe(promptForBatchPaste(), Effect.flatMap(parseBatchPairsInput)),
+      coordinator: WorkflowCoordinator,
+      config: ConfigService
+    }),
+    Effect.flatMap(({ config, coordinator, parsedPairs }) =>
+      pipe(
+        config.getConfig(),
+        Effect.flatMap((configData) => {
+          const partial = buildBatchPartialFromPairs(
+            Arr.map(parsedPairs, (p) => ({ color: p.color, stop: p.stop })),
+            {
+              formatOpt: context.formatOpt,
+              nameOpt: context.nameOpt,
+              patternOpt: O.some(context.pattern)
+            }
+          )
+          return coordinator.completeBatchPalettes(partial, context.pattern, configData.defaultBatchName)
+        })
+      )
+    ),
+    Effect.flatMap((completeInput) =>
+      executeBatchPalettes(completeInput, {
         exportOpt: context.exportOpt,
         exportPath: context.exportPath,
-        formatOpt: context.formatOpt,
-        isInteractive,
-        nameOpt: context.nameOpt,
-        pairs: parsedPairs,
-        pattern: context.pattern
+        isInteractive
       })
     )
   )
@@ -266,15 +286,24 @@ const handlePasteMode = (isInteractive: boolean, context: ModeHandlerContext) =>
 
 const handleInteractiveTransformLoop = (context: ModeHandlerContext) =>
   pipe(
-    collectTransformationsRecursively([]),
-    Effect.flatMap((transformations) =>
-      handleBatchTransformations({
-        exportOpt: context.exportOpt,
-        exportPath: context.exportPath,
+    Effect.all({
+      transformations: collectTransformationsRecursively([]),
+      coordinator: WorkflowCoordinator
+    }),
+    Effect.flatMap(({ coordinator, transformations }) => {
+      const partialItems = toCompleteTransformationItems(transformations)
+      const partial = buildBatchTransformPartial({
+        transformations: partialItems,
         formatOpt: context.formatOpt,
-        inputs: transformations,
         nameOpt: context.nameOpt,
-        pattern: context.pattern
+        patternOpt: O.some(context.pattern)
+      })
+      return coordinator.completeBatchTransform(partial, context.pattern)
+    }),
+    Effect.flatMap((completeInput) =>
+      executeBatchTransform(completeInput, {
+        exportOpt: context.exportOpt,
+        exportPath: context.exportPath
       })
     )
   )
@@ -390,82 +419,61 @@ const handleBatchPalettesMode = (
   mode: Extract<ExecutionMode, { _tag: "BatchPalettes" }>,
   context: ModeHandlerContext
 ) =>
-  handleBatchMode({
-    exportOpt: context.exportOpt,
-    exportPath: context.exportPath,
-    formatOpt: context.formatOpt,
-    isInteractive: false,
-    nameOpt: context.nameOpt,
-    pairs: Arr.map(mode.pairs, (p) => ({
-      color: p.color,
-      stop: p.stop,
-      raw: `${p.color}${PAIR_SEPARATOR}${p.stop}`
+  pipe(
+    logPhase(GatheringInput({ mode })),
+    Effect.zipRight(Effect.all({
+      coordinator: WorkflowCoordinator,
+      config: ConfigService
     })),
-    pattern: context.pattern
-  })
+    Effect.flatMap(({ config, coordinator }) =>
+      pipe(
+        config.getConfig(),
+        Effect.flatMap((configData) => {
+          const partial = buildBatchPartialFromPairs(
+            Arr.map(mode.pairs, (p) => ({ color: p.color, stop: p.stop })),
+            {
+              formatOpt: context.formatOpt,
+              nameOpt: context.nameOpt,
+              patternOpt: O.some(context.pattern)
+            }
+          )
+          return coordinator.completeBatchPalettes(partial, context.pattern, configData.defaultBatchName)
+        })
+      )
+    ),
+    Effect.flatMap((completeInput) =>
+      executeBatchPalettes(completeInput, {
+        exportOpt: context.exportOpt,
+        exportPath: context.exportPath,
+        isInteractive: false
+      })
+    )
+  )
 
 const handleSingleTransformMode = (
   mode: Extract<ExecutionMode, { _tag: "SingleTransform" }>,
   context: ModeHandlerContext
 ) =>
   pipe(
-    resolveTransformationRequest(mode.input),
-    Effect.flatMap((input) =>
-      handleSingleTransformation({
-        exportOpt: context.exportOpt,
-        exportPath: context.exportPath,
+    logPhase(GatheringInput({ mode })),
+    Effect.zipRight(WorkflowCoordinator),
+    Effect.flatMap((coordinator) => {
+      const partial = buildSingleTransformPartial({
+        reference: mode.input.reference,
+        target: mode.input.target,
+        stopOpt: O.fromNullable(mode.input.stop),
         formatOpt: context.formatOpt,
-        input,
         nameOpt: context.nameOpt,
-        pattern: context.pattern
+        patternOpt: O.some(context.pattern)
+      })
+      return coordinator.completeSingleTransform(partial, context.pattern)
+    }),
+    Effect.flatMap((completeInput) =>
+      executeSingleTransform(completeInput, {
+        exportOpt: context.exportOpt,
+        exportPath: context.exportPath
       })
     )
-  )
-
-interface ValidatedRefTarget {
-  readonly reference: string
-  readonly target: string
-}
-
-const validateRefTarget = (
-  reference: string | undefined,
-  target: string | undefined
-): O.Option<ValidatedRefTarget> => O.all({ reference: O.fromNullable(reference), target: O.fromNullable(target) })
-
-const resolveStopPosition = (
-  stopOpt: O.Option<StopPosition>
-): Effect.Effect<StopPosition, unknown, PromptService> =>
-  O.match(stopOpt, {
-    onNone: () => promptForStop(),
-    onSome: Effect.succeed
-  })
-
-const buildTransformRequest = (
-  validated: ValidatedRefTarget,
-  stop: StopPosition
-): TransformationRequest => ({
-  reference: validated.reference,
-  target: validated.target,
-  stop
-})
-
-const resolveTransformationRequest = (
-  input: {
-    readonly reference?: string | undefined
-    readonly target?: string | undefined
-    readonly stop?: StopPosition | undefined
-  }
-): Effect.Effect<TransformationRequest, unknown, PromptService> =>
-  pipe(
-    validateRefTarget(input.reference, input.target),
-    O.match({
-      onNone: () => Effect.fail("Invalid transformation: missing reference or target"),
-      onSome: (validated) =>
-        pipe(
-          resolveStopPosition(O.fromNullable(input.stop)),
-          Effect.map((stop) => buildTransformRequest(validated, stop))
-        )
-    })
   )
 
 const handleManyTransformMode = (
@@ -473,19 +481,23 @@ const handleManyTransformMode = (
   context: ModeHandlerContext
 ) =>
   pipe(
-    resolveStopPosition(O.fromNullable(mode.stop)),
-    Effect.flatMap((stop) =>
-      handleOneToManyTransformation({
-        exportOpt: context.exportOpt,
-        exportPath: context.exportPath,
+    logPhase(GatheringInput({ mode })),
+    Effect.zipRight(WorkflowCoordinator),
+    Effect.flatMap((coordinator) => {
+      const partial = buildManyTransformPartial({
+        reference: mode.reference,
+        targets: mode.targets,
+        stopOpt: O.fromNullable(mode.stop),
         formatOpt: context.formatOpt,
-        input: {
-          reference: mode.reference,
-          targets: mode.targets,
-          stop
-        },
         nameOpt: context.nameOpt,
-        pattern: context.pattern
+        patternOpt: O.some(context.pattern)
+      })
+      return coordinator.completeManyTransform(partial, context.pattern)
+    }),
+    Effect.flatMap((completeInput) =>
+      executeManyTransform(completeInput, {
+        exportOpt: context.exportOpt,
+        exportPath: context.exportPath
       })
     )
   )
@@ -495,16 +507,112 @@ const handleBatchTransformMode = (
   context: ModeHandlerContext
 ) =>
   pipe(
-    completePartialTransformations(mode.transformations),
-    Effect.map(({ inputs }) => inputs),
-    Effect.flatMap((completedInputs) =>
-      handleBatchTransformations({
-        exportOpt: context.exportOpt,
-        exportPath: context.exportPath,
+    logPhase(GatheringInput({ mode })),
+    Effect.zipRight(WorkflowCoordinator),
+    Effect.flatMap((coordinator) => {
+      const partial = buildBatchTransformPartial({
+        transformations: toPartialTransformationItems(mode.transformations),
         formatOpt: context.formatOpt,
-        inputs: completedInputs,
         nameOpt: context.nameOpt,
-        pattern: context.pattern
+        patternOpt: O.some(context.pattern)
+      })
+      return coordinator.completeBatchTransform(partial, context.pattern)
+    }),
+    Effect.flatMap((completeInput) =>
+      executeBatchTransform(completeInput, {
+        exportOpt: context.exportOpt,
+        exportPath: context.exportPath
       })
     )
+  )
+
+// ============================================================================
+// Transformation Conversion Helpers
+// ============================================================================
+
+/**
+ * Resolver's AnyTransformationRequest includes partial types where
+ * reference/target may be undefined. We define this broader type to
+ * accept the resolver's output, then filter to valid entries.
+ *
+ * Note: With exactOptionalPropertyTypes, we must use `| undefined` for
+ * properties that can be explicitly undefined in the source type.
+ */
+type ResolverTransformationRequest =
+  | TransformationRequest
+  | TransformationBatch
+  | {
+    readonly reference?: string | undefined
+    readonly target?: string | undefined
+    readonly stop?: StopPosition | undefined
+  }
+  | {
+    readonly reference?: string | undefined
+    readonly targets?: Arr.NonEmptyReadonlyArray<string> | undefined
+    readonly stop?: StopPosition | undefined
+  }
+
+/**
+ * Convert resolver's transformation requests to PartialTransformationItem for workflow.
+ * Filters out any entries missing required reference/target fields.
+ */
+const toPartialTransformationItems = (
+  transformations: Arr.NonEmptyReadonlyArray<ResolverTransformationRequest>
+): Arr.NonEmptyReadonlyArray<PartialTransformationItem> =>
+  pipe(
+    transformations,
+    Arr.filterMap(toPartialTransformationItemOption),
+    Arr.match({
+      onEmpty: () =>
+        pipe(
+          toPartialTransformationItemOption(Arr.headNonEmpty(transformations)),
+          O.match({
+            onNone: () => Arr.of(createFallbackPartialItem(Arr.headNonEmpty(transformations))),
+            onSome: Arr.of
+          })
+        ),
+      onNonEmpty: (items) => items
+    })
+  )
+
+/** Create a fallback partial item when conversion fails - uses reference as target */
+const createFallbackPartialItem = (
+  t: ResolverTransformationRequest
+): PartialTransformationItem => ({
+  reference: "reference" in t && t.reference !== undefined ? t.reference : "#000000",
+  target: "target" in t && t.target !== undefined ? t.target : "#000000",
+  stop: "stop" in t ? t.stop : undefined
+})
+
+const toPartialTransformationItemOption = (
+  t: ResolverTransformationRequest
+): O.Option<PartialTransformationItem> => {
+  if ("targets" in t && t.targets !== undefined && t.reference !== undefined) {
+    return O.some({ reference: t.reference, targets: t.targets, stop: t.stop })
+  }
+  if ("target" in t && t.target !== undefined && t.reference !== undefined) {
+    return O.some({ reference: t.reference, target: t.target, stop: t.stop })
+  }
+  return O.none()
+}
+
+/**
+ * Convert complete transformations from interactive loop to PartialTransformationItems.
+ * These already have stops since users are prompted during collection.
+ * Uses Arr.match with Arr.of to avoid type casting when handling empty arrays.
+ */
+const toCompleteTransformationItems = (
+  transformations: ReadonlyArray<TransformationRequest | TransformationBatch>
+): Arr.NonEmptyReadonlyArray<PartialTransformationItem> =>
+  pipe(
+    transformations,
+    Arr.map((t): PartialTransformationItem =>
+      "targets" in t
+        ? { reference: t.reference, targets: t.targets, stop: t.stop }
+        : { reference: t.reference, target: t.target, stop: t.stop }
+    ),
+    Arr.match({
+      onEmpty: () => Arr.of(DEFAULT_FALLBACK_TRANSFORMATION),
+      onNonEmpty: (items) => items
+    })
   )
