@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
-import { oklchToHex, oklchToOKLAB, oklchToRGB } from "../../../../src/domain/color/color.js"
+import { oklchToHex, oklchToOKLAB, oklchToRGB, parseColorStringToOKLCH } from "../../../../src/domain/color/color.js"
 import { OKLCHColor } from "../../../../src/domain/color/color.schema.js"
 
 describe("Color Conversions", () => {
@@ -100,6 +100,71 @@ describe("Color Conversions", () => {
         expect(hex1).toBe(hex2)
         // Should produce a valid hex color
         expect(hex1).toMatch(/^#[0-9a-f]{6}$/i)
+      }))
+  })
+
+  describe("parseColorStringToOKLCH", () => {
+    it.effect("should parse hex colors", () =>
+      Effect.gen(function*() {
+        const result = yield* parseColorStringToOKLCH("#2D72D2")
+
+        expect(result.l).toBeCloseTo(0.57, 1)
+        expect(result.c).toBeGreaterThan(0.1)
+        expect(result.h).toBeGreaterThan(200)
+        expect(result.h).toBeLessThan(280)
+      }))
+
+    it.effect("should parse hex colors without hash", () =>
+      Effect.gen(function*() {
+        const result = yield* parseColorStringToOKLCH("2D72D2")
+
+        expect(result.l).toBeCloseTo(0.57, 1)
+      }))
+
+    it.effect("should parse achromatic colors (grays) with undefined hue", () =>
+      Effect.gen(function*() {
+        // Gray colors have no hue - culori returns undefined for h
+        // Our parser should default to 0
+        const result = yield* parseColorStringToOKLCH("333333")
+
+        expect(result.l).toBeGreaterThan(0)
+        expect(result.l).toBeLessThan(0.5)
+        expect(result.c).toBe(0) // No chroma for grays
+        expect(result.h).toBe(0) // Default hue for achromatic
+      }))
+
+    it.effect("should parse pure white (achromatic)", () =>
+      Effect.gen(function*() {
+        const result = yield* parseColorStringToOKLCH("ffffff")
+
+        expect(result.l).toBeCloseTo(1, 1)
+        expect(result.c).toBe(0)
+        expect(result.h).toBe(0)
+      }))
+
+    it.effect("should parse pure black (achromatic)", () =>
+      Effect.gen(function*() {
+        const result = yield* parseColorStringToOKLCH("000000")
+
+        expect(result.l).toBe(0)
+        expect(result.c).toBe(0)
+        expect(result.h).toBe(0)
+      }))
+
+    it.effect("should parse mid-gray (achromatic)", () =>
+      Effect.gen(function*() {
+        const result = yield* parseColorStringToOKLCH("808080")
+
+        expect(result.l).toBeCloseTo(0.6, 1) // OKLCH lightness for mid-gray
+        expect(result.c).toBe(0)
+        expect(result.h).toBe(0)
+      }))
+
+    it.effect("should fail for invalid color strings", () =>
+      Effect.gen(function*() {
+        const result = yield* Effect.either(parseColorStringToOKLCH("not-a-color"))
+
+        expect(result._tag).toBe("Left")
       }))
   })
 })

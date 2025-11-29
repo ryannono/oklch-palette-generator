@@ -3,16 +3,10 @@
  */
 
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Either, Layer } from "effect"
+import { Effect } from "effect"
+import { MainTest } from "../../../src/layers/MainTest.js"
 import { ConfigService } from "../../../src/services/ConfigService.js"
 import { PaletteGenerationError, PaletteService } from "../../../src/services/PaletteService/index.js"
-
-// Test layer with all test dependencies
-// We need to provide ConfigService separately since tests access it directly
-const TestLayer = Layer.mergeAll(
-  ConfigService.Test,
-  PaletteService.Test
-)
 
 describe("PaletteService", () => {
   describe("generate", () => {
@@ -49,9 +43,11 @@ describe("PaletteService", () => {
 
         // Verify stops are sorted by position
         for (let i = 0; i < result.stops.length - 1; i++) {
-          expect(result.stops[i].position).toBeLessThan(result.stops[i + 1].position)
+          expect(result.stops[i].position).toBeLessThan(
+            result.stops[i + 1].position
+          )
         }
-      }).pipe(Effect.provide(TestLayer)))
+      }).pipe(Effect.provide(MainTest)))
 
     it.effect("should generate a palette with rgb output", () =>
       Effect.gen(function*() {
@@ -74,7 +70,7 @@ describe("PaletteService", () => {
         result.stops.forEach((stop) => {
           expect(stop.value).toMatch(/^rgb\(\d+, \d+, \d+\)$/)
         })
-      }).pipe(Effect.provide(TestLayer)))
+      }).pipe(Effect.provide(MainTest)))
 
     it.effect("should generate a palette with oklch output", () =>
       Effect.gen(function*() {
@@ -97,7 +93,7 @@ describe("PaletteService", () => {
         result.stops.forEach((stop) => {
           expect(stop.value).toMatch(/^oklch\([\d.]+% [\d.]+ [\d.]+\)$/)
         })
-      }).pipe(Effect.provide(TestLayer)))
+      }).pipe(Effect.provide(MainTest)))
 
     it.effect("should generate a palette with oklab output", () =>
       Effect.gen(function*() {
@@ -120,7 +116,7 @@ describe("PaletteService", () => {
         result.stops.forEach((stop) => {
           expect(stop.value).toMatch(/^oklab\([\d.]+% -?[\d.]+ -?[\d.]+\)$/)
         })
-      }).pipe(Effect.provide(TestLayer)))
+      }).pipe(Effect.provide(MainTest)))
 
     it.effect("should support different anchor stops", () =>
       Effect.gen(function*() {
@@ -156,25 +152,28 @@ describe("PaletteService", () => {
         // The anchor stop should exist in both
         expect(result300.stops.some((s) => s.position === 300)).toBe(true)
         expect(result700.stops.some((s) => s.position === 700)).toBe(true)
-      }).pipe(Effect.provide(TestLayer)))
+      }).pipe(Effect.provide(MainTest)))
 
-    it.effect("should use config default pattern source when not specified", () =>
-      Effect.gen(function*() {
-        const service = yield* PaletteService
-        const config = yield* ConfigService
-        const patternSource = yield* config.getPatternSource()
+    it.effect(
+      "should use config default pattern source when not specified",
+      () =>
+        Effect.gen(function*() {
+          const service = yield* PaletteService
+          const config = yield* ConfigService
+          const patternSource = yield* config.getPatternSource()
 
-        // Don't specify patternSource - should use config default
-        const result = yield* service.generate({
-          inputColor: "#2D72D2",
-          anchorStop: 500,
-          outputFormat: "hex",
-          paletteName: "test-default-pattern",
-          patternSource
-        })
+          // Don't specify patternSource - should use config default
+          const result = yield* service.generate({
+            inputColor: "#2D72D2",
+            anchorStop: 500,
+            outputFormat: "hex",
+            paletteName: "test-default-pattern",
+            patternSource
+          })
 
-        expect(result.stops).toHaveLength(10)
-      }).pipe(Effect.provide(TestLayer)))
+          expect(result.stops).toHaveLength(10)
+        }).pipe(Effect.provide(MainTest))
+    )
 
     it.effect("should fail with PaletteGenerationError for invalid color", () =>
       Effect.gen(function*() {
@@ -182,42 +181,39 @@ describe("PaletteService", () => {
         const config = yield* ConfigService
         const patternSource = yield* config.getPatternSource()
 
-        const result = yield* Effect.either(
-          service.generate({
+        const error = yield* service
+          .generate({
             inputColor: "not-a-color",
             anchorStop: 500,
             outputFormat: "hex",
             paletteName: "test-invalid",
             patternSource
           })
-        )
+          .pipe(Effect.flip)
 
-        expect(Either.isLeft(result)).toBe(true)
-        if (Either.isLeft(result)) {
-          expect(result.left).toBeInstanceOf(PaletteGenerationError)
-          expect(result.left.message).toContain("Failed to generate palette")
-        }
-      }).pipe(Effect.provide(TestLayer)))
+        expect(error).toBeInstanceOf(PaletteGenerationError)
+        expect(error.message).toContain("Failed to generate palette")
+      }).pipe(Effect.provide(MainTest)))
 
-    it.effect("should fail with PaletteGenerationError for invalid pattern source", () =>
-      Effect.gen(function*() {
-        const service = yield* PaletteService
+    it.effect(
+      "should fail with PaletteGenerationError for invalid pattern source",
+      () =>
+        Effect.gen(function*() {
+          const service = yield* PaletteService
 
-        const result = yield* Effect.either(
-          service.generate({
-            inputColor: "#2D72D2",
-            anchorStop: 500,
-            outputFormat: "hex",
-            paletteName: "test-invalid-pattern",
-            patternSource: "nonexistent-pattern.json"
-          })
-        )
+          const error = yield* service
+            .generate({
+              inputColor: "#2D72D2",
+              anchorStop: 500,
+              outputFormat: "hex",
+              paletteName: "test-invalid-pattern",
+              patternSource: "nonexistent-pattern.json"
+            })
+            .pipe(Effect.flip)
 
-        expect(Either.isLeft(result)).toBe(true)
-        if (Either.isLeft(result)) {
-          expect(result.left).toBeInstanceOf(PaletteGenerationError)
-        }
-      }).pipe(Effect.provide(TestLayer)))
+          expect(error).toBeInstanceOf(PaletteGenerationError)
+        }).pipe(Effect.provide(MainTest))
+    )
   })
 
   describe("generateBatch", () => {
@@ -241,7 +237,7 @@ describe("PaletteService", () => {
         expect(result.groupName).toBe("test-batch")
         expect(result.outputFormat).toBe("hex")
         expect(result.palettes).toHaveLength(3)
-        expect(result.partial).toBe(false)
+        expect(result.failures).toHaveLength(0)
         expect(result.generatedAt).toBeTruthy()
 
         // Verify each palette
@@ -249,7 +245,7 @@ describe("PaletteService", () => {
           expect(palette.stops).toHaveLength(10)
           expect(palette.outputFormat).toBe("hex")
         })
-      }).pipe(Effect.provide(TestLayer)))
+      }).pipe(Effect.provide(MainTest)))
 
     it.effect("should handle partial failures in batch", () =>
       Effect.gen(function*() {
@@ -270,35 +266,94 @@ describe("PaletteService", () => {
 
         expect(result.groupName).toBe("test-partial")
         expect(result.palettes.length).toBeLessThan(3) // Not all succeeded
-        expect(result.partial).toBe(true) // Marked as partial
+        expect(result.failures.length).toBeGreaterThan(0) // Has failures
         expect(result.palettes.length).toBeGreaterThan(0) // At least some succeeded
-      }).pipe(Effect.provide(TestLayer)))
+      }).pipe(Effect.provide(MainTest)))
 
-    it.effect("should fail with PaletteGenerationError when all batch items fail", () =>
-      Effect.gen(function*() {
-        const service = yield* PaletteService
-        const config = yield* ConfigService
-        const patternSource = yield* config.getPatternSource()
+    it.effect(
+      "should capture failure details with color, stop, and error message",
+      () =>
+        Effect.gen(function*() {
+          const service = yield* PaletteService
+          const config = yield* ConfigService
+          const patternSource = yield* config.getPatternSource()
 
-        const result = yield* Effect.either(
-          service.generateBatch({
-            paletteGroupName: "test-all-fail",
+          const result = yield* service.generateBatch({
+            paletteGroupName: "test-failure-details",
             outputFormat: "hex",
             pairs: [
-              { color: "invalid-1", stop: 500 },
-              { color: "invalid-2", stop: 500 },
-              { color: "invalid-3", stop: 500 }
+              { color: "#2D72D2", stop: 500 },
+              { color: "not-a-valid-color", stop: 700 } // This will fail
             ],
             patternSource
           })
-        )
 
-        expect(Either.isLeft(result)).toBe(true)
-        if (Either.isLeft(result)) {
-          expect(result.left).toBeInstanceOf(PaletteGenerationError)
-          expect(result.left.message).toBe("All palette generations failed")
-        }
-      }).pipe(Effect.provide(TestLayer)))
+          // Should have one success and one failure
+          expect(result.palettes).toHaveLength(1)
+          expect(result.failures).toHaveLength(1)
+
+          // Verify failure details
+          const failure = result.failures[0]
+          expect(failure.color).toBe("not-a-valid-color")
+          expect(failure.stop).toBe(700)
+          expect(failure.error).toContain(
+            "Failed to generate palette for not-a-valid-color"
+          )
+          // Error should include the underlying cause
+          expect(failure.error).toContain("Could not parse color string")
+        }).pipe(Effect.provide(MainTest))
+    )
+
+    it.effect(
+      "should fail with PaletteGenerationError when all batch items fail",
+      () =>
+        Effect.gen(function*() {
+          const service = yield* PaletteService
+          const config = yield* ConfigService
+          const patternSource = yield* config.getPatternSource()
+
+          const error = yield* service
+            .generateBatch({
+              paletteGroupName: "test-all-fail",
+              outputFormat: "hex",
+              pairs: [
+                { color: "invalid-1", stop: 500 },
+                { color: "invalid-2", stop: 500 },
+                { color: "invalid-3", stop: 500 }
+              ],
+              patternSource
+            })
+            .pipe(Effect.flip)
+
+          expect(error).toBeInstanceOf(PaletteGenerationError)
+          expect(error.message).toContain("All palette generations failed")
+          expect(error.message).toContain("invalid-1")
+          expect(error.message).toContain("invalid-2")
+          expect(error.message).toContain("invalid-3")
+        }).pipe(Effect.provide(MainTest))
+    )
+
+    it.effect("should extract nested error causes in failure messages", () =>
+      Effect.gen(function*() {
+        const service = yield* PaletteService
+
+        // Use an invalid pattern source to trigger a nested error chain
+        const error = yield* service
+          .generate({
+            inputColor: "#2D72D2",
+            anchorStop: 500,
+            outputFormat: "hex",
+            paletteName: "test",
+            patternSource: "/nonexistent/path/to/pattern.json"
+          })
+          .pipe(Effect.flip)
+
+        expect(error).toBeInstanceOf(PaletteGenerationError)
+        // The error message should contain the wrapped message AND the underlying cause
+        expect(error.message).toContain("Failed to generate palette")
+        // Should have nested cause information about file not found
+        expect(error.message.length).toBeGreaterThan(50) // Indicates nested messages
+      }).pipe(Effect.provide(MainTest)))
 
     it.effect("should support different output formats in batch", () =>
       Effect.gen(function*() {
@@ -323,7 +378,7 @@ describe("PaletteService", () => {
             expect(stop.value).toMatch(/^rgb\(/)
           })
         })
-      }).pipe(Effect.provide(TestLayer)))
+      }).pipe(Effect.provide(MainTest)))
 
     it.effect("should use custom pattern source in batch", () =>
       Effect.gen(function*() {
@@ -340,7 +395,7 @@ describe("PaletteService", () => {
         })
 
         expect(result.palettes).toHaveLength(2)
-        expect(result.partial).toBe(false)
-      }).pipe(Effect.provide(TestLayer)))
+        expect(result.failures).toHaveLength(0)
+      }).pipe(Effect.provide(MainTest)))
   })
 })

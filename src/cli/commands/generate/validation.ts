@@ -5,109 +5,72 @@
  * They are used AFTER mode detection, within each handler.
  */
 
-import * as clack from "@clack/prompts"
-import { Effect, Either, Option as O } from "effect"
-import { ColorSpace, ColorString } from "../../../domain/color/color.schema.js"
-import { StopPosition } from "../../../domain/palette/palette.schema.js"
-import { ExportTarget } from "../../../services/ExportService/export.schema.js"
-import { promptForColor, promptForExportTarget, promptForOutputFormat, promptForStop } from "../../prompts.js"
+import { Effect, Option as O, pipe } from "effect"
+import type { ParseError } from "effect/ParseResult"
+import { ConsoleService } from "../../../services/ConsoleService/index.js"
+import { ExportTarget, type ExportTarget as ExportTargetType } from "../../../services/ExportService/export.schema.js"
+import { PromptService } from "../../../services/PromptService/index.js"
+import { CancelledError, promptForExportTarget } from "../../prompts.js"
+
+// ============================================================================
+// Generic Validator
+// ============================================================================
 
 /**
- * Validate color input with retry on error (for single mode)
+ * Configuration for creating a validator with retry logic
+ * TRawInput is the type accepted by the validator (e.g., string, number)
+ * TPromptOutput is the type returned by the prompt (may be same as TRawInput)
+ * TOutput is the validated output type
  */
-export const validateColor = (colorOpt: O.Option<string>) =>
-  Effect.gen(function*() {
-    while (true) {
-      const colorResult = yield* Effect.either(
-        O.match(colorOpt, {
-          onNone: () => promptForColor(),
-          onSome: (value) => ColorString(value)
-        })
-      )
-      if (Either.isRight(colorResult)) {
-        return colorResult.right
-      }
-      // On error, always prompt interactively
-      clack.log.error("Invalid color format. Please try again.")
-      const retryColor = yield* promptForColor()
-      const retryResult = yield* Effect.either(ColorString(retryColor))
-      if (Either.isRight(retryResult)) {
-        return retryResult.right
-      }
-    }
-  })
+type ValidatorConfig<TRawInput, TPromptOutput, TOutput> = {
+  readonly validate: (value: TRawInput) => Effect.Effect<TOutput, ParseError>
+  readonly prompt: () => Effect.Effect<TPromptOutput, ParseError | CancelledError, PromptService>
+  readonly errorMessage: string
+}
 
 /**
- * Validate stop position with retry on error
+ * Create a validator that retries on failure using recursive Effect composition.
+ * Replaces imperative while(true) loops with FP-style recursion.
+ *
+ * CancelledError is not caught and propagates up - this is intentional as
+ * cancellation should exit the entire flow, not trigger a retry.
  */
-export const validateStop = (stopOpt: O.Option<number>) =>
-  Effect.gen(function*() {
-    while (true) {
-      const stopResult = yield* Effect.either(
-        O.match(stopOpt, {
-          onNone: () => promptForStop(),
-          onSome: (value) => StopPosition(value)
-        })
-      )
-      if (Either.isRight(stopResult)) {
-        return yield* StopPosition(stopResult.right)
-      }
-      // On error, always prompt interactively
-      clack.log.error("Invalid stop position. Please try again.")
-      const retryStop = yield* promptForStop()
-      const retryResult = yield* Effect.either(StopPosition(retryStop))
-      if (Either.isRight(retryResult)) {
-        return yield* StopPosition(retryResult.right)
-      }
-    }
-  })
+const createValidator = <TRawInput, TPromptOutput extends TRawInput, TOutput>(
+  config: ValidatorConfig<TRawInput, TPromptOutput, TOutput>
+) => {
+  const logErrorAndRetry: Effect.Effect<TOutput, CancelledError, ConsoleService | PromptService> = pipe(
+    Effect.flatMap(ConsoleService, (console) => console.log.error(config.errorMessage)),
+    Effect.flatMap(() => config.prompt()),
+    Effect.flatMap(config.validate),
+    Effect.catchTag("ParseError", () => logErrorAndRetry)
+  )
 
-/**
- * Validate output format with retry on error
- */
-export const validateFormat = (formatOpt: O.Option<string>) =>
-  Effect.gen(function*() {
-    while (true) {
-      const formatResult = yield* Effect.either(
-        O.match(formatOpt, {
-          onNone: () => promptForOutputFormat(),
-          onSome: (value) => ColorSpace(value)
-        })
-      )
-      if (Either.isRight(formatResult)) {
-        return formatResult.right
-      }
-      // On error, always prompt interactively
-      clack.log.error("Invalid format. Please try again.")
-      const retryFormat = yield* promptForOutputFormat()
-      const retryResult = yield* Effect.either(ColorSpace(retryFormat))
-      if (Either.isRight(retryResult)) {
-        return retryResult.right
-      }
-    }
-  })
+  return (opt: O.Option<TRawInput>): Effect.Effect<TOutput, CancelledError, ConsoleService | PromptService> =>
+    pipe(
+      O.match(opt, {
+        onNone: () => pipe(config.prompt(), Effect.flatMap(config.validate)),
+        onSome: (value) =>
+          pipe(
+            config.validate(value),
+            Effect.mapError((e): ParseError | CancelledError => e)
+          )
+      }),
+      Effect.catchTag("ParseError", () => logErrorAndRetry)
+    )
+}
+
+// ============================================================================
+// Specific Validators
+// ============================================================================
 
 /**
  * Validate export target with retry on error
  */
-export const validateExportTarget = (exportOpt: O.Option<string>) =>
-  Effect.gen(function*() {
-    while (true) {
-      const exportResult = yield* Effect.either(
-        O.match(exportOpt, {
-          onNone: () => promptForExportTarget(),
-          onSome: (value) => ExportTarget(value)
-        })
-      )
-      if (Either.isRight(exportResult)) {
-        return yield* ExportTarget(exportResult.right)
-      }
-      // On error, always prompt interactively
-      clack.log.error("Invalid export target. Please try again.")
-      const retryExport = yield* promptForExportTarget()
-      const retryResult = yield* Effect.either(ExportTarget(retryExport))
-      if (Either.isRight(retryResult)) {
-        return yield* ExportTarget(retryResult.right)
-      }
-    }
-  })
+export const validateExportTarget = (
+  exportOpt: O.Option<string>
+): Effect.Effect<ExportTargetType, CancelledError, ConsoleService | PromptService> =>
+  createValidator<string, ExportTargetType, ExportTargetType>({
+    validate: ExportTarget,
+    prompt: promptForExportTarget,
+    errorMessage: "Invalid export target. Please try again."
+  })(exportOpt)

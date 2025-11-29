@@ -9,7 +9,8 @@ import {
   parseAnyTransformation,
   parseBatchTransformations,
   parseOneToManyTransformation,
-  parseTransformationString
+  parseTransformationString,
+  TransformParseError
 } from "../../../src/cli/commands/generate/parsers/transform-parser.js"
 
 describe("Transformation Input Parsing", () => {
@@ -85,7 +86,7 @@ describe("Transformation Input Parsing", () => {
 
     it.effect("should fail without > operator", () =>
       parseTransformationString("2D72D2::500").pipe(
-        Effect.catchTag("ColorError", (error) =>
+        Effect.catchTag("TransformParseError", (error: TransformParseError) =>
           Effect.sync(() => {
             expect(error.message).toContain("'>' operator")
           }))
@@ -140,7 +141,7 @@ describe("Transformation Input Parsing", () => {
 
     it.effect("should fail without parentheses", () =>
       parseOneToManyTransformation("2D72D2>238551,DC143C::500").pipe(
-        Effect.catchTag("ColorError", (error) =>
+        Effect.catchTag("TransformParseError", (error: TransformParseError) =>
           Effect.sync(() => {
             expect(error.message).toContain(">(...)")
           }))
@@ -148,7 +149,7 @@ describe("Transformation Input Parsing", () => {
 
     it.effect("should fail with empty target list", () =>
       parseOneToManyTransformation("2D72D2>()::500").pipe(
-        Effect.catchTag("ColorError", (error) =>
+        Effect.catchTag("TransformParseError", (error: TransformParseError) =>
           Effect.sync(() => {
             expect(error.message).toContain("At least one")
           }))

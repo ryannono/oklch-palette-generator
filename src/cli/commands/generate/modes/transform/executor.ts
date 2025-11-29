@@ -4,12 +4,15 @@
  * Applies optical appearance transformations and generates palettes.
  */
 
-import { Array as Arr, Effect, Option as O, pipe, Schema } from "effect"
+import { Array as Arr, Effect, Option as O, pipe } from "effect"
 import { applyOpticalAppearance, oklchToHex, parseColorStringToOKLCH } from "../../../../../domain/color/color.js"
-import { type ColorSpace, ColorSpace as decodeColorSpace } from "../../../../../domain/color/color.schema.js"
+import type { ColorSpace as ColorSpaceType } from "../../../../../domain/color/color.schema.js"
+import type { StopPosition } from "../../../../../domain/palette/palette.schema.js"
 import { ConfigService } from "../../../../../services/ConfigService.js"
-import { BatchResult, ISOTimestampSchema } from "../../../../../services/PaletteService/palette.schema.js"
-import type { TransformationBatch, TransformationRequest } from "../../../../schemas/transformation.schema.js"
+import { BatchResult, ISOTimestamp } from "../../../../../services/PaletteService/palette.schema.js"
+import type { BatchTransformComplete } from "../../inputSpecs/batchTransform.input.js"
+import type { ManyTransformComplete } from "../../inputSpecs/manyTransform.input.js"
+import type { SingleTransformComplete } from "../../inputSpecs/singleTransform.input.js"
 import {
   buildExportConfig,
   displayPalette,
@@ -24,65 +27,52 @@ import {
 
 type GeneratedPalette = Effect.Effect.Success<ReturnType<typeof generateAndDisplay>>
 
-type TransformationOptions = {
+type TransformExecuteOptions = {
   readonly exportOpt: O.Option<string>
   readonly exportPath: O.Option<string>
-  readonly formatOpt: O.Option<string>
-  readonly nameOpt: O.Option<string>
-  readonly pattern: string
 }
 
 // ============================================================================
-// Public API
+// Workflow-Based Execute Functions
 // ============================================================================
 
 /**
- * Handle single transformation: ref>target::stop
+ * Execute single transformation with complete, validated input.
  *
- * Applies the reference color's optical appearance (lightness + chroma)
- * to the target color's hue, then generates a palette at the specified stop.
+ * This is the new workflow-based API that receives fully validated input.
+ * No prompting or validation happens here - just pure execution.
  */
-export const handleSingleTransformation = ({
-  exportOpt,
-  exportPath,
-  formatOpt,
-  input,
-  nameOpt,
-  pattern
-}: TransformationOptions & { readonly input: TransformationRequest }) =>
+export const executeSingleTransform = (
+  input: SingleTransformComplete,
+  options: TransformExecuteOptions
+) =>
   Effect.gen(function*() {
-    const format = yield* parseFormat(formatOpt)
     const result = yield* transformAndGenerate(
       input.reference,
       input.target,
       input.stop,
-      O.getOrElse(nameOpt, () => "transformed"),
-      format,
-      pattern
+      input.name,
+      input.format,
+      input.pattern
     )
 
     yield* displayPalette(result)
-    yield* handleSingleExport(result, exportOpt, exportPath)
+    yield* handleSingleExport(result, options.exportOpt, options.exportPath)
 
     return result
   })
 
 /**
- * Handle one-to-many transformation: ref>(t1,t2,t3)::stop
+ * Execute one-to-many transformation with complete, validated input.
  *
  * Applies a single reference color's optical appearance to multiple target hues.
  * Each target receives the same lightness and chroma, varying only by hue.
  */
-export const handleOneToManyTransformation = ({
-  exportOpt,
-  exportPath,
-  formatOpt,
-  input,
-  nameOpt,
-  pattern
-}: TransformationOptions & { readonly input: TransformationBatch }) =>
+export const executeManyTransform = (
+  input: ManyTransformComplete,
+  options: TransformExecuteOptions
+) =>
   Effect.gen(function*() {
-    const format = yield* parseFormat(formatOpt)
     const referenceColor = yield* parseColorStringToOKLCH(input.reference)
 
     const results = yield* Effect.forEach(
@@ -93,96 +83,121 @@ export const handleOneToManyTransformation = ({
           const transformedColor = yield* applyOpticalAppearance(referenceColor, targetColor)
           const transformedHex = yield* oklchToHex(transformedColor)
 
-          const name = O.match(nameOpt, {
-            onNone: () => `transformed-${target}`,
-            onSome: (n) => `${n}-${target}`
-          })
-
-          const result = yield* generateAndDisplay({
+          return yield* generateAndDisplay({
             color: transformedHex,
-            format,
-            name,
-            pattern,
+            format: input.format,
+            name: `${input.name}-${target}`,
+            pattern: input.pattern,
             stop: input.stop
           })
-
-          yield* displayPalette(result)
-          return result
         }),
-      { concurrency: 1 }
+      { concurrency: "unbounded" }
     )
 
-    yield* handleBatchExport(results, exportOpt, exportPath, "one-to-many-transformation")
+    yield* Effect.forEach(results, displayPalette, { concurrency: 1 })
+    yield* handleBatchExport(results, options.exportOpt, options.exportPath, "one-to-many-transformation")
 
     return results
   })
 
 /**
- * Handle batch transformations (multiple lines)
+ * Execute batch transformations with complete, validated input.
  *
  * Processes multiple transformation inputs, each potentially being a single
  * or one-to-many transformation. Results are flattened into a single array.
  */
-export const handleBatchTransformations = ({
-  exportOpt,
-  exportPath,
-  formatOpt,
-  inputs,
-  nameOpt,
-  pattern
-}: TransformationOptions & {
-  readonly inputs: ReadonlyArray<TransformationRequest | TransformationBatch>
-}) =>
+export const executeBatchTransform = (
+  input: BatchTransformComplete,
+  options: TransformExecuteOptions
+) =>
   Effect.gen(function*() {
     const nestedResults = yield* Effect.forEach(
-      inputs,
-      (input) =>
-        "targets" in input
-          ? handleOneToManyTransformation({
-            exportOpt: O.none(),
-            exportPath: O.none(),
-            formatOpt,
-            input,
-            nameOpt,
-            pattern
-          })
+      input.transformations,
+      (transformation) =>
+        "targets" in transformation
+          ? generateOneToManyFromComplete(transformation, input.format, input.name, input.pattern)
           : Effect.map(
-            handleSingleTransformation({
-              exportOpt: O.none(),
-              exportPath: O.none(),
-              formatOpt,
-              input,
-              nameOpt,
-              pattern
-            }),
+            generateSingleFromComplete(transformation, input.format, input.name, input.pattern),
             (result) => [result]
           ),
-      { concurrency: 1 }
+      { concurrency: "unbounded" }
     )
 
     const results = Arr.flatten(nestedResults)
 
-    const config = yield* ConfigService
-    const configData = yield* config.getConfig()
-    yield* handleBatchExport(results, exportOpt, exportPath, configData.defaultBatchName)
+    yield* Effect.forEach(results, displayPalette, { concurrency: 1 })
+    yield* handleBatchExport(results, options.exportOpt, options.exportPath, input.name)
 
     return results
+  })
+
+// ============================================================================
+// Generation Helpers
+// ============================================================================
+
+/** Generate palette for a single transformation from Complete type (no display) */
+const generateSingleFromComplete = (
+  input: { readonly reference: string; readonly target: string; readonly stop: StopPosition },
+  format: ColorSpaceType,
+  name: string,
+  pattern: string
+) =>
+  Effect.gen(function*() {
+    const referenceColor = yield* parseColorStringToOKLCH(input.reference)
+    const targetColor = yield* parseColorStringToOKLCH(input.target)
+    const transformedColor = yield* applyOpticalAppearance(referenceColor, targetColor)
+    const transformedHex = yield* oklchToHex(transformedColor)
+
+    return yield* generateAndDisplay({
+      color: transformedHex,
+      format,
+      name,
+      pattern,
+      stop: input.stop
+    })
+  })
+
+/** Generate palettes for one-to-many transformation from Complete type (no display) */
+const generateOneToManyFromComplete = (
+  input: { readonly reference: string; readonly targets: ReadonlyArray<string>; readonly stop: StopPosition },
+  format: ColorSpaceType,
+  baseName: string,
+  pattern: string
+) =>
+  Effect.gen(function*() {
+    const referenceColor = yield* parseColorStringToOKLCH(input.reference)
+
+    return yield* Effect.forEach(
+      input.targets,
+      (target) =>
+        Effect.gen(function*() {
+          const targetColor = yield* parseColorStringToOKLCH(target)
+          const transformedColor = yield* applyOpticalAppearance(referenceColor, targetColor)
+          const transformedHex = yield* oklchToHex(transformedColor)
+
+          return yield* generateAndDisplay({
+            color: transformedHex,
+            format,
+            name: `${baseName}-${target}`,
+            pattern,
+            stop: input.stop
+          })
+        }),
+      { concurrency: "unbounded" }
+    )
   })
 
 // ============================================================================
 // Transformation
 // ============================================================================
 
-/** Parse format option with default */
-const parseFormat = (formatOpt: O.Option<string>) => decodeColorSpace(O.getOrElse(formatOpt, () => "hex"))
-
 /** Transform a single color and generate palette */
 const transformAndGenerate = (
   reference: string,
   target: string,
-  stop: TransformationRequest["stop"],
+  stop: StopPosition,
   name: string,
-  format: ColorSpace,
+  format: ColorSpaceType,
   pattern: string
 ) =>
   Effect.gen(function*() {
@@ -235,7 +250,7 @@ const handleBatchExport = (
         Effect.gen(function*() {
           const generatedAt = yield* Effect.clockWith((clock) =>
             clock.currentTimeMillis.pipe(
-              Effect.map((millis) => Schema.decodeSync(ISOTimestampSchema)(new Date(millis).toISOString()))
+              Effect.flatMap((millis) => ISOTimestamp(new Date(millis).toISOString()))
             )
           )
 
@@ -247,12 +262,16 @@ const handleBatchExport = (
             O.getOrElse(() => configData.defaultOutputFormat)
           )
 
-          const batch = yield* BatchResult({
-            generatedAt,
-            groupName,
-            outputFormat,
-            palettes: [...results],
-            partial: false
+          const batch = yield* Arr.match(results, {
+            onEmpty: () => Effect.die(new Error("Cannot export empty batch results")),
+            onNonEmpty: (nonEmptyResults) =>
+              BatchResult({
+                generatedAt,
+                groupName,
+                outputFormat,
+                palettes: nonEmptyResults,
+                partial: false
+              })
           })
 
           return yield* executeBatchExport(batch, config)

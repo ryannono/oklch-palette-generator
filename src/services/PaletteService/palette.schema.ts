@@ -54,18 +54,18 @@ export const ISOTimestamp = Schema.decodeUnknown(ISOTimestampSchema)
 export type ISOTimestamp = typeof ISOTimestampSchema.Type
 
 /** Color paired with its anchor stop position for batch operations */
-export const ColorAnchorSchema = Schema.Struct({
+export const ColorStopPairSchema = Schema.Struct({
   color: ColorStringSchema,
   stop: StopPositionSchema
 }).pipe(
   Schema.annotations({
-    identifier: "ColorAnchor",
+    identifier: "ColorStopPair",
     description: "Color paired with its anchor stop position for palette generation"
   })
 )
 
-export const ColorAnchor = Schema.decodeUnknown(ColorAnchorSchema)
-export type ColorAnchor = typeof ColorAnchorSchema.Type
+export const ColorStopPair = Schema.decodeUnknown(ColorStopPairSchema)
+export type ColorStopPair = typeof ColorStopPairSchema.Type
 
 /** A palette stop with its formatted output value */
 export const FormattedStopSchema = PaletteStopSchema.pipe(
@@ -125,9 +125,20 @@ export type PaletteResult = typeof PaletteResultSchema.Type
 // Batch Palette Schemas
 // ============================================================================
 
+/** A failed palette generation with error details */
+export const GenerationFailureSchema = ColorStopPairSchema.pipe(
+  Schema.extend(Schema.Struct({ error: Schema.String })),
+  Schema.annotations({
+    identifier: "GenerationFailure",
+    description: "Details of a failed palette generation attempt"
+  })
+)
+
+export type GenerationFailure = typeof GenerationFailureSchema.Type
+
 /** Request to generate multiple palettes in a single operation */
 export const BatchRequestSchema = Schema.Struct({
-  pairs: Schema.NonEmptyArray(ColorAnchorSchema),
+  pairs: Schema.NonEmptyArray(ColorStopPairSchema),
   outputFormat: ColorSpaceSchema,
   paletteGroupName: Schema.optionalWith(Schema.String, {
     default: () => DEFAULT_BATCH_NAME
@@ -149,7 +160,7 @@ export const BatchResultSchema = Schema.Struct({
   outputFormat: ColorSpaceSchema,
   generatedAt: ISOTimestampSchema,
   palettes: Schema.NonEmptyArray(PaletteResultSchema),
-  partial: Schema.optionalWith(Schema.Boolean, { default: () => false })
+  failures: Schema.optionalWith(Schema.Array(GenerationFailureSchema), { default: () => [] })
 }).pipe(
   Schema.annotations({
     identifier: "BatchResult",
