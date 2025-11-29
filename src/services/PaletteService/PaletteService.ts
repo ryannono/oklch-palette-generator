@@ -2,7 +2,7 @@
  * Palette service for color palette generation with pattern-based transformations.
  */
 
-import { Array, Data, Effect, Either, Layer, Schema } from "effect"
+import { Array, Data, Effect, Either, Layer, Option as O, Schema } from "effect"
 import type { ParseError } from "effect/ParseResult"
 import { ColorError, oklchToHex, oklchToOKLAB, oklchToRGB, parseColorStringToOKLCH } from "../../domain/color/color.js"
 import type { ColorSpace, OKLABColor, OKLCHColor, RGBColor } from "../../domain/color/color.schema.js"
@@ -13,6 +13,7 @@ import { PatternService } from "../PatternService/index.js"
 import {
   type BatchRequest,
   type BatchResult,
+  type GenerationFailure,
   ISOTimestampSchema,
   type PaletteRequest,
   PaletteResult
@@ -71,9 +72,24 @@ const convertColor = (
 // Internal Helpers
 // ============================================================================
 
+/** Extract a human-readable message from an error, including nested causes */
+const extractErrorMessage = (error: unknown): string => {
+  if (error === null || error === undefined) return "Unknown error"
+  if (typeof error === "string") return error
+  if (error instanceof Error) {
+    const causeMessage = "cause" in error && error.cause ? `: ${extractErrorMessage(error.cause)}` : ""
+    return `${error.message}${causeMessage}`
+  }
+  if (typeof error === "object" && "message" in error && typeof error.message === "string") {
+    const causeMessage = "cause" in error && error.cause ? `: ${extractErrorMessage(error.cause)}` : ""
+    return `${error.message}${causeMessage}`
+  }
+  return String(error)
+}
+
 const wrapPaletteError = (inputColor: string) => (error: unknown) =>
   new PaletteGenerationError({
-    message: `Failed to generate palette for ${inputColor}`,
+    message: `Failed to generate palette for ${inputColor}: ${extractErrorMessage(error)}`,
     cause: error
   })
 
@@ -177,9 +193,26 @@ export class PaletteService extends Effect.Service<PaletteService>()(
 
           const successfulPalettes = Array.getSomes(Array.map(results, Either.getRight))
 
+          // Extract failures with their original color/stop pairs
+          const failures: ReadonlyArray<GenerationFailure> = Array.filterMap(
+            Array.zip(input.pairs, results),
+            ([pair, result]) =>
+              Either.match(result, {
+                onLeft: (error): O.Option<GenerationFailure> =>
+                  O.some({
+                    color: pair.color,
+                    stop: pair.stop,
+                    error: error.message
+                  }),
+                onRight: () => O.none()
+              })
+          )
+
           if (!Array.isNonEmptyReadonlyArray(successfulPalettes)) {
             return yield* Effect.fail(
-              new PaletteGenerationError({ message: "All palette generations failed" })
+              new PaletteGenerationError({
+                message: `All palette generations failed: ${failures.map((f) => `${f.color} (${f.error})`).join(", ")}`
+              })
             )
           }
 
@@ -189,7 +222,7 @@ export class PaletteService extends Effect.Service<PaletteService>()(
             groupName: input.paletteGroupName,
             outputFormat: input.outputFormat,
             palettes: successfulPalettes,
-            partial: successfulPalettes.length < results.length,
+            failures,
             generatedAt
           }
         })

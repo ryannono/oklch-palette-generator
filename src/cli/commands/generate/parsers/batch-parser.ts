@@ -2,7 +2,7 @@
  * Batch input parsing utilities for color/stop pairs.
  */
 
-import { Array as Arr, Effect, Option, Schema } from "effect"
+import { Array as Arr, Effect, Option, pipe, Schema } from "effect"
 import { ParseError } from "effect/ParseResult"
 import { ColorStringSchema } from "../../../../domain/color/color.schema.js"
 import { StopPositionSchema } from "../../../../domain/palette/palette.schema.js"
@@ -42,6 +42,7 @@ type SeparatorPattern = string | RegExp
 // Internal Helpers
 // ============================================================================
 
+/** Split input by separator, returning tuple of [before, after] */
 const splitBySeparator = (
   input: string,
   separator: SeparatorPattern
@@ -56,9 +57,11 @@ const splitBySeparator = (
   }
 
   const parts = input.split(separator)
-  return parts.length === 2
-    ? Option.some([parts[0].trim(), parts[1].trim()])
-    : Option.none()
+  return pipe(
+    Option.all([Arr.get(parts, 0), Arr.get(parts, 1)]),
+    Option.filter(() => parts.length === 2),
+    Option.map(([first, second]) => [first.trim(), second.trim()] as const)
+  )
 }
 
 const parseStop = (stopStr: string): number | undefined => {
@@ -97,14 +100,13 @@ export const parseBatchPairString = (
 ): Effect.Effect<ParsedPair, ParseError> => {
   const trimmed = input.trim()
 
-  const parseAttempts = SEPARATOR_PATTERNS.map((sep) => tryParseBySeparator(trimmed, sep))
-
-  const firstMatch = parseAttempts.reduce(
-    (acc, attempt) => (Option.isSome(acc) ? acc : attempt),
-    Option.none<Effect.Effect<ParsedPair, ParseError>>()
+  return pipe(
+    SEPARATOR_PATTERNS,
+    Arr.map((sep) => tryParseBySeparator(trimmed, sep)),
+    Arr.getSomes,
+    Arr.head,
+    Option.getOrElse(() => buildParsedPair(trimmed, undefined, trimmed))
   )
-
-  return Option.getOrElse(firstMatch, () => buildParsedPair(trimmed, undefined, trimmed))
 }
 
 /** Parse multiple color/stop pairs from newline or comma-separated input. */
@@ -138,12 +140,12 @@ export const parseBatchPairsInput = (
 /** Get pairs that are missing stop positions. */
 export const getPairsWithMissingStops = (
   pairs: ReadonlyArray<ParsedPair>
-): ReadonlyArray<ParsedPair> => pairs.filter(hasMissingStop)
+): ReadonlyArray<ParsedPair> => Arr.filter(pairs, hasMissingStop)
 
 /** Get pairs that have stop positions. */
 export const getPairsWithStops = (
   pairs: ReadonlyArray<ParsedPair>
-): ReadonlyArray<ParsedPair> => pairs.filter(hasStop)
+): ReadonlyArray<ParsedPair> => Arr.filter(pairs, hasStop)
 
 /** Create a new parsed pair with a specific stop position. */
 export const setPairStop = (

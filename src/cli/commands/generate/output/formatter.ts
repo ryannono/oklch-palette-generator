@@ -6,7 +6,7 @@
  */
 
 import * as clack from "@clack/prompts"
-import { Effect, Option as O, ParseResult, pipe } from "effect"
+import { Array as Arr, Effect, Option as O, ParseResult, pipe } from "effect"
 import { ColorSpace } from "../../../../domain/color/color.schema.js"
 import { StopPosition } from "../../../../domain/palette/palette.schema.js"
 import type { ExportConfig, JSONPath as JSONPathType } from "../../../../services/ExportService/export.schema.js"
@@ -22,15 +22,16 @@ import { validateExportTarget } from "../validation.js"
 // ============================================================================
 
 const Messages = {
-  batchStatus: (count: number, partial: boolean) =>
-    partial
-      ? `Generated with some failures: ${count} palette(s) ✓`
+  batchStatus: (count: number, failureCount: number) =>
+    failureCount > 0
+      ? `Generated with ${failureCount} failure(s): ${count} palette(s) ✓`
       : `All generated successfully: ${count} palette(s) ✓`,
   copiedToClipboard: "Copied to clipboard!",
   exportedToJson: (path: JSONPathType | undefined) => `Exported to ${path}`,
   format: (format: string) => `Format: ${format}`,
   group: (name: string) => `Group: ${name}`,
-  paletteTitle: (name: string) => `Palette: ${name}`
+  paletteTitle: (name: string) => `Palette: ${name}`,
+  failure: (color: string, stop: number, error: string) => `Failed: ${color} at stop ${stop} - ${error}`
 } as const
 
 // ============================================================================
@@ -90,16 +91,21 @@ export const displayPalette = (result: PaletteResult) =>
 /**
  * Display batch generation results
  *
- * Shows summary status, group name, output format, and each
- * generated palette in the batch.
+ * Shows summary status, group name, output format, failures (if any),
+ * and each generated palette in the batch.
  */
 export const displayBatch = (batch: BatchResult) =>
   Effect.sync(() => {
-    clack.log.success(Messages.batchStatus(batch.palettes.length, batch.partial))
+    clack.log.success(Messages.batchStatus(batch.palettes.length, batch.failures.length))
     clack.log.info(Messages.group(batch.groupName))
     clack.log.info(Messages.format(batch.outputFormat))
 
-    batch.palettes.forEach((palette) => {
+    // Display any failures
+    Arr.forEach(batch.failures, (failure) => {
+      clack.log.warning(Messages.failure(failure.color, failure.stop, failure.error))
+    })
+
+    Arr.forEach(batch.palettes, (palette) => {
       clack.note(formatBatchPaletteNote(palette), palette.name)
     })
   })

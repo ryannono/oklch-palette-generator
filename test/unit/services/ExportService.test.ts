@@ -61,7 +61,7 @@ describe("ExportService", () => {
     groupName: "test-batch",
     outputFormat: "hex",
     palettes: [samplePalette],
-    partial: false,
+    failures: [],
     generatedAt: Schema.decodeSync(ISOTimestampSchema)(new Date().toISOString())
   }
 

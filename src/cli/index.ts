@@ -1,8 +1,12 @@
 import { Command } from "@effect/cli"
 import { NodeRuntime } from "@effect/platform-node"
 import { Effect } from "effect"
+import { createRequire } from "node:module"
 import { MainLive } from "../layers/MainLive.js"
 import { generate } from "./commands/generate/index.js"
+
+const require = createRequire(import.meta.url)
+const packageJson: { version: string } = require("../../package.json")
 
 const cli = Command.make("color-palette-generator").pipe(
   Command.withSubcommands([generate])
@@ -10,7 +14,7 @@ const cli = Command.make("color-palette-generator").pipe(
 
 const runCli = Command.run(cli, {
   name: "Color Palette Generator",
-  version: "0.1.0"
+  version: packageJson.version
 })
 
 const main = runCli(process.argv).pipe(Effect.provide(MainLive))

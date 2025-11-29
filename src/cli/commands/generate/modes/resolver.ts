@@ -7,14 +7,14 @@
 
 import { Array as Arr, Effect, Option as O, pipe } from "effect"
 import type { ParseError } from "effect/ParseResult"
-import { ColorError } from "../../../../domain/color/color.js"
 import { ColorString } from "../../../../domain/color/color.schema.js"
 import { StopPosition } from "../../../../domain/palette/palette.schema.js"
 import { parseBatchPairsInput } from "../parsers/batch-parser.js"
 import {
   isTransformationSyntax,
   parseAnyTransformation,
-  parseBatchTransformations
+  parseBatchTransformations,
+  TransformParseError
 } from "../parsers/transform-parser.js"
 import {
   BatchPalettesMode,
@@ -145,12 +145,12 @@ const createSingleTransformMode = (
 const transformationToMode = (
   t: AnyTransformation,
   colorInput: string
-): Effect.Effect<ExecutionMode, ParseError | ColorError> => {
+): Effect.Effect<ExecutionMode, ParseError | TransformParseError> => {
   if (isManyTransformation(t)) {
     return isValidManyTransformation(t)
       ? createManyTransformMode(t)
       : Effect.fail(
-        new ColorError({
+        new TransformParseError({
           message: `Invalid transformation syntax: reference and targets are required: ${colorInput}`
         })
       )
@@ -165,7 +165,7 @@ const transformationToMode = (
 /** Main mode detection logic */
 function detectModeImpl(
   input: ModeDetectionInput
-): Effect.Effect<ModeDetectionResult, ParseError | ColorError> {
+): Effect.Effect<ModeDetectionResult, ParseError | TransformParseError> {
   return pipe(
     input.colorOpt,
     O.match({
@@ -186,7 +186,7 @@ const createInteractiveResult = (): Effect.Effect<ModeDetectionResult, ParseErro
 const detectModeFromColor = (
   colorInput: string,
   stopOpt: O.Option<number>
-): Effect.Effect<ModeDetectionResult, ParseError | ColorError> =>
+): Effect.Effect<ModeDetectionResult, ParseError | TransformParseError> =>
   pipe(
     isTransformationSyntax(colorInput)
       ? detectTransformationMode(colorInput)
@@ -199,7 +199,7 @@ const detectModeFromColor = (
 /** Detect transformation mode from color input */
 const detectTransformationMode = (
   colorInput: string
-): Effect.Effect<ExecutionMode, ParseError | ColorError> =>
+): Effect.Effect<ExecutionMode, ParseError | TransformParseError> =>
   hasBatchSeparator(colorInput)
     ? detectBatchTransformationMode(colorInput)
     : detectSingleTransformationMode(colorInput)
@@ -207,7 +207,7 @@ const detectTransformationMode = (
 /** Detect batch transformation mode (comma or newline separated) */
 const detectBatchTransformationMode = (
   colorInput: string
-): Effect.Effect<ExecutionMode, ParseError | ColorError> =>
+): Effect.Effect<ExecutionMode, ParseError | TransformParseError> =>
   pipe(
     parseBatchTransformations(colorInput),
     Effect.flatMap((transformations) =>
@@ -226,18 +226,18 @@ const detectBatchTransformationMode = (
 const handleMultipleTransformations = (
   transformations: ReadonlyArray<AnyTransformation>,
   colorInput: string
-): Effect.Effect<ExecutionMode, ParseError | ColorError> => {
+): Effect.Effect<ExecutionMode, ParseError | TransformParseError> => {
   const validInputs = Arr.filter(transformations, isValidTransformation)
 
   return Arr.isEmptyReadonlyArray(validInputs)
-    ? Effect.fail(new ColorError({ message: `No valid transformations found: ${colorInput}` }))
+    ? Effect.fail(new TransformParseError({ message: `No valid transformations found: ${colorInput}` }))
     : BatchTransformMode({ _tag: "BatchTransform", transformations: validInputs })
 }
 
 /** Detect single transformation mode */
 const detectSingleTransformationMode = (
   colorInput: string
-): Effect.Effect<ExecutionMode, ParseError | ColorError> =>
+): Effect.Effect<ExecutionMode, ParseError | TransformParseError> =>
   pipe(
     parseAnyTransformation(colorInput),
     Effect.flatMap((t) => transformationToMode(t, colorInput))

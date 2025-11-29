@@ -97,7 +97,7 @@ describe("CLI Generate Command Integration", () => {
         })
 
         expect(result.palettes).toHaveLength(2)
-        expect(result.partial).toBe(false)
+        expect(result.failures).toHaveLength(0)
         expect(result.palettes[0].name).toContain("batch-test")
         expect(result.palettes[1].name).toContain("batch-test")
       }).pipe(Effect.provide(PaletteService.Test)))

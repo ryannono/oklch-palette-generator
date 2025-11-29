@@ -6,7 +6,10 @@
 
 import { Array as Arr, Effect, Option as O, pipe, Schema } from "effect"
 import { applyOpticalAppearance, oklchToHex, parseColorStringToOKLCH } from "../../../../../domain/color/color.js"
-import { type ColorSpace, ColorSpace as decodeColorSpace } from "../../../../../domain/color/color.schema.js"
+import {
+  type ColorSpace as ColorSpaceType,
+  ColorSpace as decodeColorSpace
+} from "../../../../../domain/color/color.schema.js"
 import { ConfigService } from "../../../../../services/ConfigService.js"
 import { BatchResult, ISOTimestampSchema } from "../../../../../services/PaletteService/palette.schema.js"
 import {
@@ -98,19 +101,19 @@ export const handleOneToManyTransformation = ({
             onSome: (n) => `${n}-${target}`
           })
 
-          const result = yield* generateAndDisplay({
+          return yield* generateAndDisplay({
             color: transformedHex,
             format,
             name,
             pattern,
             stop: input.stop
           })
-
-          yield* displayPalette(result)
-          return result
         }),
-      { concurrency: 1 }
+      { concurrency: "unbounded" }
     )
+
+    // Display all palettes after generation completes
+    yield* Effect.forEach(results, displayPalette, { concurrency: 1 })
 
     yield* handleBatchExport(results, exportOpt, exportPath, "one-to-many-transformation")
 
@@ -134,39 +137,92 @@ export const handleBatchTransformations = ({
   readonly inputs: ReadonlyArray<TransformationRequest | TransformationBatch>
 }) =>
   Effect.gen(function*() {
+    const format = yield* parseFormat(formatOpt)
+
+    // Generate all palettes in parallel
     const nestedResults = yield* Effect.forEach(
       inputs,
       (input) =>
         "targets" in input
-          ? handleOneToManyTransformation({
-            exportOpt: O.none(),
-            exportPath: O.none(),
-            formatOpt,
-            input,
-            nameOpt,
-            pattern
-          })
+          ? generateOneToMany(input, format, nameOpt, pattern)
           : Effect.map(
-            handleSingleTransformation({
-              exportOpt: O.none(),
-              exportPath: O.none(),
-              formatOpt,
-              input,
-              nameOpt,
-              pattern
-            }),
+            generateSingle(input, format, nameOpt, pattern),
             (result) => [result]
           ),
-      { concurrency: 1 }
+      { concurrency: "unbounded" }
     )
 
     const results = Arr.flatten(nestedResults)
+
+    // Display all palettes sequentially (for clean output)
+    yield* Effect.forEach(results, displayPalette, { concurrency: 1 })
 
     const config = yield* ConfigService
     const configData = yield* config.getConfig()
     yield* handleBatchExport(results, exportOpt, exportPath, configData.defaultBatchName)
 
     return results
+  })
+
+// ============================================================================
+// Generation Helpers (no display/export)
+// ============================================================================
+
+/** Generate palette for a single transformation (no display) */
+const generateSingle = (
+  input: TransformationRequest,
+  format: ColorSpaceType,
+  nameOpt: O.Option<string>,
+  pattern: string
+) =>
+  Effect.gen(function*() {
+    const referenceColor = yield* parseColorStringToOKLCH(input.reference)
+    const targetColor = yield* parseColorStringToOKLCH(input.target)
+    const transformedColor = yield* applyOpticalAppearance(referenceColor, targetColor)
+    const transformedHex = yield* oklchToHex(transformedColor)
+
+    return yield* generateAndDisplay({
+      color: transformedHex,
+      format,
+      name: O.getOrElse(nameOpt, () => "transformed"),
+      pattern,
+      stop: input.stop
+    })
+  })
+
+/** Generate palettes for one-to-many transformation (no display) */
+const generateOneToMany = (
+  input: TransformationBatch,
+  format: ColorSpaceType,
+  nameOpt: O.Option<string>,
+  pattern: string
+) =>
+  Effect.gen(function*() {
+    const referenceColor = yield* parseColorStringToOKLCH(input.reference)
+
+    return yield* Effect.forEach(
+      input.targets,
+      (target) =>
+        Effect.gen(function*() {
+          const targetColor = yield* parseColorStringToOKLCH(target)
+          const transformedColor = yield* applyOpticalAppearance(referenceColor, targetColor)
+          const transformedHex = yield* oklchToHex(transformedColor)
+
+          const name = O.match(nameOpt, {
+            onNone: () => `transformed-${target}`,
+            onSome: (n) => `${n}-${target}`
+          })
+
+          return yield* generateAndDisplay({
+            color: transformedHex,
+            format,
+            name,
+            pattern,
+            stop: input.stop
+          })
+        }),
+      { concurrency: "unbounded" }
+    )
   })
 
 // ============================================================================
@@ -182,7 +238,7 @@ const transformAndGenerate = (
   target: string,
   stop: TransformationRequest["stop"],
   name: string,
-  format: ColorSpace,
+  format: ColorSpaceType,
   pattern: string
 ) =>
   Effect.gen(function*() {

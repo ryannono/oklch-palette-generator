@@ -466,13 +466,17 @@ const formatColorProps = <T extends object, K extends keyof T>(
   keys: ReadonlyArray<K>
 ): string => keys.map((key) => `${String(key)}=${color[key]}`).join(", ")
 
-/** Extract OKLCHColor from culori oklch result with validation */
+/** Extract OKLCHColor from culori oklch result with validation
+ *
+ * Note: Achromatic colors (grays) have undefined hue - we default to 0
+ * since hue is meaningless for colors with no chroma.
+ */
 const fromCuloriOklch = (oklch: culori.Oklch): Effect.Effect<OKLCHColor, ColorError> =>
-  isDefined(oklch.l) && isDefined(oklch.c) && isDefined(oklch.h)
+  isDefined(oklch.l) && isDefined(oklch.c)
     ? Effect.succeed({
       l: oklch.l,
       c: oklch.c,
-      h: oklch.h,
+      h: oklch.h ?? 0, // Achromatic colors have undefined hue, default to 0
       alpha: oklch.alpha ?? 1
     })
     : Effect.fail(

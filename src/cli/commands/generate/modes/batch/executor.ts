@@ -61,9 +61,9 @@ type CompletePair = {
 
 const Messages = {
   foundColors: (count: number) => `Found ${count} color(s)`,
-  generated: (count: number, partial: boolean) =>
-    partial
-      ? `Generated ${count} palette(s) with some failures`
+  generated: (count: number, failureCount: number) =>
+    failureCount > 0
+      ? `Generated ${count} palette(s) with ${failureCount} failure(s)`
       : `Generated ${count} palette(s)`,
   generating: (count: number) => `Generating ${count} palette(s)...`,
   missingStops: (count: number) => `${count} color(s) missing stop position`,
@@ -103,7 +103,7 @@ export const handleBatchMode = ({
     const batchResult = yield* withSpinner(
       generateBatch(service, colorAnchors, format, groupName, pattern),
       Messages.generating(colorAnchors.length),
-      (result) => Messages.generated(result.palettes.length, result.partial),
+      (result) => Messages.generated(result.palettes.length, result.failures.length),
       mode
     )
 
