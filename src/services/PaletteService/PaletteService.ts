@@ -3,9 +3,8 @@
  */
 
 import { Array, Data, Effect, Either, Layer, Option as O, Schema } from "effect"
-import type { ParseError } from "effect/ParseResult"
-import { ColorError, oklchToHex, oklchToOKLAB, oklchToRGB, parseColorStringToOKLCH } from "../../domain/color/color.js"
-import type { ColorSpace, OKLABColor, OKLCHColor, RGBColor } from "../../domain/color/color.schema.js"
+import { parseColorStringToOKLCH } from "../../domain/color/color.js"
+import { formatPaletteStops } from "../../domain/color/formatter.js"
 import { generatePaletteFromStop } from "../../domain/palette/generator.js"
 import { ConfigService } from "../ConfigService.js"
 import { FilePath, type FilePath as FilePathType } from "../PatternService/filesystem.schema.js"
@@ -20,14 +19,6 @@ import {
 } from "./palette.schema.js"
 
 // ============================================================================
-// Types
-// ============================================================================
-
-type ColorConverter = (
-  color: OKLCHColor
-) => Effect.Effect<string, ColorError | ParseError>
-
-// ============================================================================
 // Errors
 // ============================================================================
 
@@ -38,35 +29,6 @@ export class PaletteGenerationError extends Data.TaggedError(
   readonly message: string
   readonly cause?: unknown
 }> {}
-
-// ============================================================================
-// Color Formatting
-// ============================================================================
-
-const formatRGB = (rgb: RGBColor): string =>
-  `rgb(${rgb.r}, ${rgb.g}, ${rgb.b}${rgb.alpha !== 1 ? `, ${rgb.alpha}` : ""})`
-
-const formatOKLCH = (color: OKLCHColor): string =>
-  `oklch(${(color.l * 100).toFixed(2)}% ${color.c.toFixed(3)} ${color.h.toFixed(1)}${
-    color.alpha !== 1 ? ` / ${color.alpha}` : ""
-  })`
-
-const formatOKLAB = (oklab: OKLABColor): string =>
-  `oklab(${(oklab.l * 100).toFixed(2)}% ${oklab.a.toFixed(3)} ${oklab.b.toFixed(3)}${
-    oklab.alpha !== 1 ? ` / ${oklab.alpha}` : ""
-  })`
-
-const colorConverters: Record<ColorSpace, ColorConverter> = {
-  hex: oklchToHex,
-  rgb: (color) => oklchToRGB(color).pipe(Effect.map(formatRGB)),
-  oklch: (color) => Effect.succeed(formatOKLCH(color)),
-  oklab: (color) => oklchToOKLAB(color).pipe(Effect.map(formatOKLAB))
-}
-
-const convertColor = (
-  color: OKLCHColor,
-  format: ColorSpace
-): Effect.Effect<string, ColorError | ParseError> => colorConverters[format](color)
 
 // ============================================================================
 // Internal Helpers
@@ -108,23 +70,6 @@ const resolvePatternSource = (
       )
     )
     : Effect.succeed(configPatternSource)
-
-const formatPaletteStops = (
-  stops: ReadonlyArray<{ readonly color: OKLCHColor; readonly position: number }>,
-  outputFormat: ColorSpace
-) =>
-  Effect.forEach(
-    stops,
-    (stop) =>
-      convertColor(stop.color, outputFormat).pipe(
-        Effect.map((formatted) => ({
-          color: stop.color,
-          position: stop.position,
-          value: formatted
-        }))
-      ),
-    { concurrency: "unbounded" }
-  )
 
 const getCurrentISOTimestamp = Effect.clockWith((clock) =>
   clock.currentTimeMillis.pipe(
