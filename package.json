@@ -1,6 +1,6 @@
 {
   "name": "oklch-palette-generator",
-  "version": "0.1.3",
+  "version": "0.2.5",
   "type": "module",
   "packageManager": "pnpm@10.14.0",
   "license": "MIT",
@@ -65,11 +65,11 @@
   "dependencies": {
     "@clack/prompts": "^0.8.2",
     "@effect/cli": "^0.72.1",
-    "@effect/platform": "^0.93.3",
-    "@effect/platform-node": "^0.101.1",
+    "@effect/platform": "^0.93.5",
+    "@effect/platform-node": "^0.102.0",
     "clipboardy": "^5.0.1",
     "culori": "^4.0.1",
-    "effect": "^3.19.6"
+    "effect": "^3.19.8"
   },
   "devDependencies": {
     "@babel/cli": "^7.24.8",
