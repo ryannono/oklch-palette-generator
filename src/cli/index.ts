@@ -5,15 +5,15 @@ import { Effect } from "effect"
 import { MainLive } from "../layers/MainLive.js"
 import { generate } from "./commands/generate/index.js"
 // Self-reference import via package.json exports field
-import packageJson from "oklch-palette-generator/package.json" with { type: "json" }
+import packageJson from "huescale/package.json" with { type: "json" }
 import { CancelledError } from "../services/PromptService/index.js"
 
-const cli = Command.make("color-palette-generator").pipe(
+const cli = Command.make("huescale").pipe(
   Command.withSubcommands([generate])
 )
 
 const runCli = Command.run(cli, {
-  name: "Color Palette Generator",
+  name: "Huescale",
   version: packageJson.version
 })
 

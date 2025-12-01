@@ -101,7 +101,7 @@ const takeFirst = <T>(
  * All prompts return Effects that may fail with CancelledError if the user cancels the prompt.
  */
 export class PromptService extends Effect.Service<PromptService>()(
-  "@oklch-palette-generator/services/PromptService",
+  "@huescale/services/PromptService",
   {
     effect: Effect.succeed(
       {
@@ -156,7 +156,7 @@ export class PromptService extends Effect.Service<PromptService>()(
    * provided values match the expected select types at runtime.
    */
   static readonly makeTest = <TSelect>(responses: ScriptedResponses<TSelect>) =>
-    Effect.Service<PromptService>()("@oklch-palette-generator/services/PromptService", {
+    Effect.Service<PromptService>()("@huescale/services/PromptService", {
       effect: Effect.gen(function*() {
         const textRef = yield* Ref.make<ReadonlyArray<string>>([
           ...responses.textResponses

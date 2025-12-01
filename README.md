@@ -1,12 +1,12 @@
-# OKLCH Palette Generator
+# Huescale
 
-A CLI tool for generating perceptually uniform 10-stop color palettes using the OKLCH color space, with DTCG-compliant design token export.
+Generate perceptually uniform color palettes using the OKLCH color space, with DTCG-compliant design token export.
 
-[![npm version](https://img.shields.io/npm/v/oklch-palette-generator.svg)](https://www.npmjs.com/package/oklch-palette-generator)
+[![npm version](https://img.shields.io/npm/v/huescale.svg)](https://www.npmjs.com/package/huescale)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue.svg)](https://www.typescriptlang.org/)
 
-<img width="497" alt="OKLCH Palette Generator Demo" src="https://github.com/user-attachments/assets/16a47ef7-646a-4853-8c08-ef3e601e2397" />
+<img width="497" alt="Huescale Demo" src="https://github.com/user-attachments/assets/16a47ef7-646a-4853-8c08-ef3e601e2397" />
 
 ## Features
 
@@ -23,61 +23,59 @@ A CLI tool for generating perceptually uniform 10-stop color palettes using the 
 
 ```bash
 # npm
-npx oklch-palette-generator generate
+npx huescale generate
 
 # pnpm
-pnpm dlx oklch-palette-generator generate
+pnpm dlx huescale generate
 
 # yarn
-yarn dlx oklch-palette-generator generate
+yarn dlx huescale generate
 
 # bun
-bunx oklch-palette-generator generate
+bunx huescale generate
 ```
 
 ### Install globally
 
 ```bash
 # npm
-npm install -g oklch-palette-generator
+npm install -g huescale
 
 # pnpm
-pnpm add -g oklch-palette-generator
+pnpm add -g huescale
 
 # yarn
-yarn global add oklch-palette-generator
+yarn global add huescale
 
 # bun
-bun add -g oklch-palette-generator
+bun add -g huescale
 ```
-
-After installing, use `oklch-palette generate` or `oklch-palette-generator generate`.
 
 ## Quick Start
 
 ### Interactive
 
 ```bash
-oklch-palette generate
+huescale generate
 ```
 
 ### Direct
 
 ```bash
 # Single palette
-oklch-palette generate -c "#2D72D2" -s 500 -f hex -n "blue"
+huescale generate -c "#2D72D2" -s 500 -f hex -n "blue"
 
 # Batch palettes
-oklch-palette generate -c "#2D72D2::500,#DB2C6F::600" -f hex
+huescale generate -c "#2D72D2::500,#DB2C6F::600" -f hex
 
 # Single transformation
-oklch-palette generate -c "#2D72D2>#FF6B6B::500" -f hex
+huescale generate -c "#2D72D2>#FF6B6B::500" -f hex
 
 # Export to JSON file (DTCG format)
-oklch-palette generate -c "#2D72D2" -e json -p ./tokens.json
+huescale generate -c "#2D72D2" -e json -p ./tokens.json
 
 # Copy to clipboard (DTCG format)
-oklch-palette generate -c "#2D72D2" -e clipboard
+huescale generate -c "#2D72D2" -e clipboard
 ```
 
 ## Usage
@@ -123,7 +121,7 @@ JSON and clipboard exports follow the [DTCG 2025.10 specification](https://www.d
   "blue": {
     "$type": "color",
     "$extensions": {
-      "oklch-palette-generator": {
+      "huescale": {
         "inputColor": "#2D72D2",
         "anchorStop": 500,
         "outputFormat": "hex"
@@ -137,7 +135,7 @@ JSON and clipboard exports follow the [DTCG 2025.10 specification](https://www.d
         "hex": "#2D72D2"
       },
       "$extensions": {
-        "oklch-palette-generator": {
+        "huescale": {
           "position": 500,
           "formattedValue": "#2d72d2"
         }
@@ -158,8 +156,8 @@ The `$extensions` namespace preserves generation metadata (input color, anchor s
 ## Development
 
 ```bash
-git clone https://github.com/ryannono/oklch-palette-generator
-cd oklch-palette-generator
+git clone https://github.com/ryannono/huescale
+cd huescale
 pnpm install
 
 pnpm dev        # Run CLI

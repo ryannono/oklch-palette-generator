@@ -77,7 +77,7 @@ type AnyTransformation =
  * ```
  */
 export class ModeResolver extends Effect.Service<ModeResolver>()(
-  "@oklch-palette-generator/cli/commands/generate/modes/ModeResolver",
+  "@huescale/cli/commands/generate/modes/ModeResolver",
   {
     effect: Effect.succeed({
       detectMode: detectModeImpl

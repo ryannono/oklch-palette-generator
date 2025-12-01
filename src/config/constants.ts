@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url"
 
 /** Default pattern path resolved via package self-reference exports */
 export const DEFAULT_PATTERN_PATH = fileURLToPath(
-  import.meta.resolve(`oklch-palette-generator/patterns/default.json`)
+  import.meta.resolve(`huescale/patterns/default.json`)
 )
 
 /** Test fixture palette path */

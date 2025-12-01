@@ -1,11 +1,12 @@
 {
-  "name": "oklch-palette-generator",
-  "version": "0.2.6",
+  "name": "huescale",
+  "version": "1.0.0",
   "type": "module",
   "packageManager": "pnpm@10.14.0",
   "license": "MIT",
-  "description": "CLI tool for generating perceptually uniform OKLCH color palettes with DTCG-compliant design token export",
+  "description": "Generate perceptually uniform color palettes using OKLCH color space with DTCG-compliant design token export",
   "keywords": [
+    "huescale",
     "oklch",
     "color",
     "palette",
@@ -21,22 +22,22 @@
     "color-palette",
     "color-generator",
     "ui-design",
-    "color-theory"
+    "color-theory",
+    "color-scale"
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ryannono/oklch-palette-generator.git"
+    "url": "git+https://github.com/ryannono/huescale.git"
   },
   "bugs": {
-    "url": "https://github.com/ryannono/oklch-palette-generator/issues"
+    "url": "https://github.com/ryannono/huescale/issues"
   },
-  "homepage": "https://github.com/ryannono/oklch-palette-generator#readme",
+  "homepage": "https://github.com/ryannono/huescale#readme",
   "publishConfig": {
     "access": "public"
   },
   "bin": {
-    "oklch-palette-generator": "./build/esm/cli/index.js",
-    "oklch-palette": "./build/esm/cli/index.js"
+    "huescale": "./build/esm/cli/index.js"
   },
   "files": [
     "build/",

@@ -27,8 +27,8 @@ import { GenerationFailureSchema, ISOTimestampSchema, StopPositionSchema } from 
 /** DTCG color type identifier */
 const DTCG_COLOR_TYPE = "color" as const
 
-/** Extension namespace for oklch-palette-generator metadata */
-export const EXTENSION_NAMESPACE = "oklch-palette-generator" as const
+/** Extension namespace for huescale metadata */
+export const EXTENSION_NAMESPACE = "huescale" as const
 
 // ============================================================================
 // DTCG Color Value Schema (Spec-Compliant)
