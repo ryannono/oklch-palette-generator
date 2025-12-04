@@ -17,8 +17,6 @@ const runCli = Command.run(cli, {
   version: packageJson.version
 })
 
-
-
 const main = runCli(process.argv).pipe(
   Effect.provide(MainLive),
   Effect.catchIf(
